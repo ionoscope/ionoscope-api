@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import httpx
@@ -34,12 +34,14 @@ async def build_forecast(station: str, settings: Settings) -> ForecastResponse:
         station=str(prediction_payload["station"]),
         source_timestamp=source_timestamp,
         forecast_timestamp=source_timestamp + horizon_delta if horizon_delta is not None else None,
+        generated_at=datetime.now(UTC),
         parameter=str(prediction_payload["parameter"]),
         prediction=float(prediction_payload["prediction"]),
         unit=str(prediction_payload["unit"]),
         horizon=horizon,
         model=str(prediction_payload["model"]),
         model_version=str(prediction_payload["model_version"]),
+        cached=False,
         explanation=None,
     )
 

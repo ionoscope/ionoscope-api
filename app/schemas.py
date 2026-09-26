@@ -18,12 +18,14 @@ class ForecastResponse(BaseModel):
     station: str
     source_timestamp: datetime
     forecast_timestamp: datetime | None = None
+    generated_at: datetime
     parameter: str
     prediction: float
     unit: str
     horizon: str
     model: str
     model_version: str
+    cached: bool = False
     explanation: str | None = None
 
 
