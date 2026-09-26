@@ -1,0 +1,83 @@
+# IonoScope API
+
+Main backend API for the IonoScope frontend.
+
+Version `0.1.0` implements the first forecast orchestration path:
+
+- accept a station selected by the user;
+- call `ionoscope-data` for the latest prepared features;
+- call `ionoscope-ml-service` for a fast `foF2` forecast;
+- return one frontend-ready response.
+
+LLM explanations are not connected yet. The response already keeps an
+`explanation` field so a separate explanation service can be added later without
+changing the forecast contract.
+
+## Install
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install -r requirements.txt
+```
+
+## Configuration
+
+The API reads upstream service URLs from environment variables:
+
+```powershell
+$env:IONOSCOPE_DATA_API_URL = "http://127.0.0.1:8001"
+$env:IONOSCOPE_ML_SERVICE_URL = "http://127.0.0.1:8002"
+```
+
+Defaults use the same local URLs.
+
+## Run
+
+```powershell
+python -m uvicorn app.main:app --reload --port 8000
+```
+
+Open API docs:
+
+```text
+http://127.0.0.1:8000/docs
+```
+
+## Endpoints
+
+- `GET /health`
+- `GET /api/v1/forecast/stations`
+- `POST /api/v1/forecast`
+
+Forecast request:
+
+```json
+{
+  "station": "TR169"
+}
+```
+
+Forecast response:
+
+```json
+{
+  "station": "TR169",
+  "source_timestamp": "2026-09-27T00:00:00Z",
+  "forecast_timestamp": "2026-09-27T00:15:00Z",
+  "parameter": "foF2",
+  "prediction": 6.378,
+  "unit": "MHz",
+  "horizon": "15min",
+  "model": "HistGradientBoostingRegressor",
+  "model_version": "0.1.0",
+  "explanation": null
+}
+```
+
+## Tests
+
+```powershell
+python -m pip install -r requirements-dev.txt
+python -m pytest
+```
