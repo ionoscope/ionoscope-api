@@ -94,3 +94,21 @@ Forecast response:
 python -m pip install -r requirements-dev.txt
 python -m pytest
 ```
+
+## Refresh Forecast Cache
+
+Run a one-off refresh for all stations with prepared data:
+
+```powershell
+python .\scripts\refresh_forecast_cache.py --api-url http://127.0.0.1:8000
+```
+
+Refresh selected stations:
+
+```powershell
+python .\scripts\refresh_forecast_cache.py --api-url http://127.0.0.1:8000 --stations TR169
+```
+
+On a server this command should be scheduled after the prepared data update
+step, for example every 15 minutes. The user-facing `/api/v1/forecast` endpoint
+then returns the already cached forecast.
