@@ -14,6 +14,8 @@ class Settings:
     ml_service_url: str = "http://127.0.0.1:8002"
     request_timeout_seconds: float = 10.0
     forecast_cache_dir: Path = PROJECT_ROOT / "forecast_cache"
+    forecast_stale_after_minutes: float = 30.0
+    forecast_expire_after_minutes: float = 120.0
 
 
 def get_settings() -> Settings:
@@ -24,4 +26,10 @@ def get_settings() -> Settings:
             os.getenv("IONOSCOPE_REQUEST_TIMEOUT_SECONDS", str(Settings.request_timeout_seconds))
         ),
         forecast_cache_dir=Path(os.getenv("IONOSCOPE_FORECAST_CACHE_DIR", str(Settings.forecast_cache_dir))),
+        forecast_stale_after_minutes=float(
+            os.getenv("IONOSCOPE_FORECAST_STALE_AFTER_MINUTES", str(Settings.forecast_stale_after_minutes))
+        ),
+        forecast_expire_after_minutes=float(
+            os.getenv("IONOSCOPE_FORECAST_EXPIRE_AFTER_MINUTES", str(Settings.forecast_expire_after_minutes))
+        ),
     )

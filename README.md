@@ -30,6 +30,8 @@ The API reads upstream service URLs from environment variables:
 $env:IONOSCOPE_DATA_API_URL = "http://127.0.0.1:8001"
 $env:IONOSCOPE_ML_SERVICE_URL = "http://127.0.0.1:8002"
 $env:IONOSCOPE_FORECAST_CACHE_DIR = ".\forecast_cache"
+$env:IONOSCOPE_FORECAST_STALE_AFTER_MINUTES = "30"
+$env:IONOSCOPE_FORECAST_EXPIRE_AFTER_MINUTES = "120"
 ```
 
 Defaults use the same local URLs.
@@ -50,6 +52,7 @@ http://127.0.0.1:8000/docs
 
 - `GET /health`
 - `GET /api/v1/forecast/stations`
+- `GET /api/v1/forecast/status/{station}`
 - `POST /api/v1/forecast`
 - `POST /api/v1/forecast/refresh`
 
@@ -112,3 +115,11 @@ python .\scripts\refresh_forecast_cache.py --api-url http://127.0.0.1:8000 --sta
 On a server this command should be scheduled after the prepared data update
 step, for example every 15 minutes. The user-facing `/api/v1/forecast` endpoint
 then returns the already cached forecast.
+
+`GET /api/v1/forecast/status/{station}` returns cache freshness without
+recomputing the forecast. Status values are:
+
+- `missing` - no cached forecast exists;
+- `fresh` - cached forecast is within the freshness window;
+- `stale` - cached forecast can be shown with a warning;
+- `expired` - cached forecast should not be shown as current.

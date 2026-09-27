@@ -29,6 +29,20 @@ class ForecastResponse(BaseModel):
     explanation: str | None = None
 
 
+class ForecastStatusResponse(BaseModel):
+    station: str
+    status: str
+    cache_available: bool
+    is_usable: bool
+    message: str
+    source_timestamp: datetime | None = None
+    forecast_timestamp: datetime | None = None
+    generated_at: datetime | None = None
+    age_minutes: float | None = None
+    stale_after_minutes: float
+    expire_after_minutes: float
+
+
 class Station(BaseModel):
     code: str
     country: str | None = None

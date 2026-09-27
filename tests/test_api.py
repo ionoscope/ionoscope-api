@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime, timedelta
+
 import httpx
 from fastapi.testclient import TestClient
 
@@ -18,6 +20,30 @@ def isolated_settings(tmp_path) -> Settings:
         ml_service_url="http://ml-service.local",
         request_timeout_seconds=1.0,
         forecast_cache_dir=tmp_path,
+        forecast_stale_after_minutes=30.0,
+        forecast_expire_after_minutes=120.0,
+    )
+
+
+def write_cached_forecast(tmp_path, generated_at: datetime) -> None:
+    (tmp_path / "TR169.json").write_text(
+        f"""
+        {{
+          "station": "TR169",
+          "source_timestamp": "2026-09-27T00:00:00Z",
+          "forecast_timestamp": "2026-09-27T00:15:00Z",
+          "generated_at": "{generated_at.isoformat().replace("+00:00", "Z")}",
+          "parameter": "foF2",
+          "prediction": 6.378,
+          "unit": "MHz",
+          "horizon": "15min",
+          "model": "HistGradientBoostingRegressor",
+          "model_version": "0.1.0",
+          "cached": false,
+          "explanation": null
+        }}
+        """,
+        encoding="utf-8",
     )
 
 
@@ -87,30 +113,73 @@ def test_forecast_returns_cache_without_upstream_calls(monkeypatch, tmp_path) ->
 
     monkeypatch.setattr(clients, "get_json", fail_upstream)
     monkeypatch.setattr(clients, "post_json", fail_upstream)
-    (tmp_path / "TR169.json").write_text(
-        """
-        {
-          "station": "TR169",
-          "source_timestamp": "2026-09-27T00:00:00Z",
-          "forecast_timestamp": "2026-09-27T00:15:00Z",
-          "generated_at": "2026-09-27T00:01:00Z",
-          "parameter": "foF2",
-          "prediction": 6.378,
-          "unit": "MHz",
-          "horizon": "15min",
-          "model": "HistGradientBoostingRegressor",
-          "model_version": "0.1.0",
-          "cached": false,
-          "explanation": null
-        }
-        """,
-        encoding="utf-8",
-    )
+    write_cached_forecast(tmp_path, datetime.now(UTC))
 
     response = client.post("/api/v1/forecast", json={"station": "TR169"})
 
     assert response.status_code == 200
     assert response.json()["cached"] is True
+
+
+def test_forecast_status_reports_missing_cache(monkeypatch, tmp_path) -> None:
+    monkeypatch.setattr("app.main.get_settings", lambda: isolated_settings(tmp_path))
+
+    response = client.get("/api/v1/forecast/status/TR169")
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "station": "TR169",
+        "status": "missing",
+        "cache_available": False,
+        "is_usable": False,
+        "message": "No cached forecast is available.",
+        "source_timestamp": None,
+        "forecast_timestamp": None,
+        "generated_at": None,
+        "age_minutes": None,
+        "stale_after_minutes": 30.0,
+        "expire_after_minutes": 120.0,
+    }
+
+
+def test_forecast_status_reports_fresh_cache(monkeypatch, tmp_path) -> None:
+    monkeypatch.setattr("app.main.get_settings", lambda: isolated_settings(tmp_path))
+    write_cached_forecast(tmp_path, datetime.now(UTC) - timedelta(minutes=5))
+
+    response = client.get("/api/v1/forecast/status/TR169")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "fresh"
+    assert payload["cache_available"] is True
+    assert payload["is_usable"] is True
+    assert payload["age_minutes"] < 30
+
+
+def test_forecast_status_reports_stale_cache(monkeypatch, tmp_path) -> None:
+    monkeypatch.setattr("app.main.get_settings", lambda: isolated_settings(tmp_path))
+    write_cached_forecast(tmp_path, datetime.now(UTC) - timedelta(minutes=45))
+
+    response = client.get("/api/v1/forecast/status/TR169")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "stale"
+    assert payload["cache_available"] is True
+    assert payload["is_usable"] is True
+
+
+def test_forecast_status_reports_expired_cache(monkeypatch, tmp_path) -> None:
+    monkeypatch.setattr("app.main.get_settings", lambda: isolated_settings(tmp_path))
+    write_cached_forecast(tmp_path, datetime.now(UTC) - timedelta(minutes=180))
+
+    response = client.get("/api/v1/forecast/status/TR169")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "expired"
+    assert payload["cache_available"] is True
+    assert payload["is_usable"] is False
 
 
 def test_upstream_error_maps_to_bad_gateway(monkeypatch, tmp_path) -> None:

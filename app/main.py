@@ -4,8 +4,8 @@ from fastapi import FastAPI, HTTPException
 
 from .clients import UpstreamServiceError, build_forecast, fetch_stations
 from .config import get_settings
-from .forecast_cache import ForecastCacheMiss, load_forecast, save_forecast
-from .schemas import ForecastRequest, ForecastResponse, HealthResponse, StationListResponse
+from .forecast_cache import ForecastCacheMiss, get_forecast_status, load_forecast, save_forecast
+from .schemas import ForecastRequest, ForecastResponse, ForecastStatusResponse, HealthResponse, StationListResponse
 
 
 app = FastAPI(
@@ -51,3 +51,8 @@ async def refresh_forecast(request: ForecastRequest) -> ForecastResponse:
         return save_forecast(fresh_forecast, settings)
     except UpstreamServiceError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+
+@app.get("/api/v1/forecast/status/{station}", response_model=ForecastStatusResponse, tags=["forecast"])
+def forecast_status(station: str) -> ForecastStatusResponse:
+    return get_forecast_status(station, get_settings())
