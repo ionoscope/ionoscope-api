@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import httpx
+
 from fastapi import FastAPI, HTTPException
 
-from .clients import UpstreamServiceError, build_forecast, fetch_stations
-from .config import get_settings
-from .forecast_cache import ForecastCacheMiss, get_forecast_status, load_forecast, save_forecast
+from .clients import InsufficientObservationError, UpstreamServiceError, build_forecast, fetch_stations
+from .config import Settings, get_settings
+from .forecast_cache import ForecastCacheMiss, evaluate_forecast, get_forecast_status, load_forecast, save_forecast
 from .schemas import ForecastRequest, ForecastResponse, ForecastStatusResponse, HealthResponse, StationListResponse
 
 
@@ -24,7 +26,7 @@ def health() -> HealthResponse:
 async def forecast_stations() -> StationListResponse:
     try:
         return await fetch_stations(get_settings())
-    except UpstreamServiceError as exc:
+    except (UpstreamServiceError, httpx.HTTPError) as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 
 
@@ -32,27 +34,48 @@ async def forecast_stations() -> StationListResponse:
 async def forecast(request: ForecastRequest) -> ForecastResponse:
     settings = get_settings()
     try:
-        return load_forecast(request.station, settings)
+        cached = load_forecast(request.station, settings)
+        status = evaluate_forecast(cached, settings)
+        if status.is_usable:
+            return with_freshness(cached, status)
     except ForecastCacheMiss:
         pass
 
-    try:
-        fresh_forecast = await build_forecast(request.station, settings)
-        return save_forecast(fresh_forecast, settings)
-    except UpstreamServiceError as exc:
-        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    return await compute_current_forecast(request.station, settings)
 
 
 @app.post("/api/v1/forecast/refresh", response_model=ForecastResponse, tags=["forecast"])
 async def refresh_forecast(request: ForecastRequest) -> ForecastResponse:
-    settings = get_settings()
+    return await compute_current_forecast(request.station, get_settings())
+
+
+async def compute_current_forecast(station: str, settings: Settings) -> ForecastResponse:
     try:
-        fresh_forecast = await build_forecast(request.station, settings)
-        return save_forecast(fresh_forecast, settings)
-    except UpstreamServiceError as exc:
+        fresh_forecast = await build_forecast(station, settings)
+        status = evaluate_forecast(fresh_forecast, settings)
+        if not status.is_usable:
+            raise HTTPException(status_code=503, detail={
+                "code": "forecast_unavailable", "message": status.message,
+                "source_timestamp": fresh_forecast.source_timestamp.isoformat(),
+                "forecast_timestamp": (fresh_forecast.forecast_timestamp.isoformat()
+                                       if fresh_forecast.forecast_timestamp else None),
+            })
+        return save_forecast(with_freshness(fresh_forecast, status), settings)
+    except InsufficientObservationError as exc:
+        raise HTTPException(status_code=503, detail={
+            "code": "insufficient_observations", "message": str(exc),
+        }) from exc
+    except (UpstreamServiceError, httpx.HTTPError) as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 
 
 @app.get("/api/v1/forecast/status/{station}", response_model=ForecastStatusResponse, tags=["forecast"])
 def forecast_status(station: str) -> ForecastStatusResponse:
     return get_forecast_status(station, get_settings())
+
+
+def with_freshness(forecast: ForecastResponse, status: ForecastStatusResponse) -> ForecastResponse:
+    return forecast.model_copy(update={
+        "freshness_status": status.status,
+        "freshness_message": status.message,
+    })

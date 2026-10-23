@@ -47,22 +47,49 @@ def get_forecast_status(station: str, settings: Settings) -> ForecastStatusRespo
             expire_after_minutes=settings.forecast_expire_after_minutes,
         )
 
-    now = datetime.now(UTC)
-    generated_at = ensure_aware_utc(forecast.generated_at)
-    age_minutes = max((now - generated_at).total_seconds() / 60, 0.0)
+    return evaluate_forecast(forecast, settings)
 
-    if age_minutes > settings.forecast_expire_after_minutes:
-        status = "expired"
-        is_usable = False
-        message = "Cached forecast is expired and should not be shown as current."
-    elif age_minutes > settings.forecast_stale_after_minutes:
-        status = "stale"
-        is_usable = True
-        message = "Cached forecast is stale; show it with a freshness warning."
+
+def evaluate_forecast(
+    forecast: ForecastResponse, settings: Settings, *, now: datetime | None = None
+) -> ForecastStatusResponse:
+    now = ensure_aware_utc(now or datetime.now(UTC))
+    generated_at = ensure_aware_utc(forecast.generated_at)
+    source_timestamp = ensure_aware_utc(forecast.source_timestamp)
+    forecast_timestamp = (
+        ensure_aware_utc(forecast.forecast_timestamp) if forecast.forecast_timestamp else None
+    )
+    age_minutes = max((now - generated_at).total_seconds() / 60, 0.0)
+    source_age_minutes = max((now - source_timestamp).total_seconds() / 60, 0.0)
+    observation = (ensure_aware_utc(forecast.observation_timestamp)
+                   if forecast.observation_timestamp else None)
+    observation_age = max((now - observation).total_seconds() / 60, 0.0) if observation else 0
+    effective_age = max(age_minutes, source_age_minutes, observation_age)
+
+    if not forecast.current_fof2_available or observation is None:
+        status, is_usable = "expired", False
+        message = "Current foF2 observation provenance is missing; recompute the forecast."
+    elif observation < source_timestamp or (forecast_timestamp and observation >= forecast_timestamp):
+        status, is_usable = "expired", False
+        message = "foF2 observation does not belong to the forecast interval."
+    elif generated_at > now or source_timestamp > now or observation > generated_at:
+        status, is_usable = "expired", False
+        message = "Forecast has a calculation or observation timestamp in the future."
+    elif forecast_timestamp is None or forecast_timestamp <= source_timestamp:
+        status, is_usable = "expired", False
+        message = "Forecast target time is missing or invalid."
+    elif forecast_timestamp <= now:
+        status, is_usable = "expired", False
+        message = "Forecast target time has passed."
+    elif effective_age >= settings.forecast_expire_after_minutes:
+        status, is_usable = "expired", False
+        message = "Forecast or source observations have expired."
+    elif effective_age >= settings.forecast_stale_after_minutes:
+        status, is_usable = "stale", True
+        message = "Forecast or source observations are stale; show a freshness warning."
     else:
-        status = "fresh"
-        is_usable = True
-        message = "Cached forecast is fresh."
+        status, is_usable = "fresh", True
+        message = "Forecast and source observations are fresh."
 
     return ForecastStatusResponse(
         station=forecast.station,
@@ -74,6 +101,7 @@ def get_forecast_status(station: str, settings: Settings) -> ForecastStatusRespo
         forecast_timestamp=forecast.forecast_timestamp,
         generated_at=forecast.generated_at,
         age_minutes=round(age_minutes, 3),
+        source_age_minutes=round(source_age_minutes, 3),
         stale_after_minutes=settings.forecast_stale_after_minutes,
         expire_after_minutes=settings.forecast_expire_after_minutes,
     )

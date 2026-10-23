@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import math
+
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -7,6 +9,10 @@ import httpx
 
 from .config import Settings
 from .schemas import ForecastResponse, StationListResponse
+
+
+class InsufficientObservationError(RuntimeError):
+    pass
 
 
 class UpstreamServiceError(RuntimeError):
@@ -20,6 +26,17 @@ async def fetch_stations(settings: Settings) -> StationListResponse:
 
 async def build_forecast(station: str, settings: Settings) -> ForecastResponse:
     feature_payload = await get_json(settings.data_api_url, f"/api/v1/features/{station}/latest", settings)
+    features = feature_payload.get("features", {})
+    value = features.get("foF2")
+    observation = feature_payload.get("observation_timestamp")
+    if (feature_payload.get("current_fof2_available") is not True
+            or not isinstance(value, (int, float)) or not math.isfinite(value)
+            or not observation):
+        raise InsufficientObservationError(
+            "Current foF2 with a verified observation timestamp is required. "
+            f"Latest valid observation: {feature_payload.get('latest_fof2_timestamp') or 'unknown'}."
+        )
+    observation_timestamp = datetime.fromisoformat(observation.replace("Z", "+00:00"))
     prediction_payload = await post_json(
         settings.ml_service_url,
         "/api/v1/predict",
@@ -33,6 +50,8 @@ async def build_forecast(station: str, settings: Settings) -> ForecastResponse:
     return ForecastResponse(
         station=str(prediction_payload["station"]),
         source_timestamp=source_timestamp,
+        observation_timestamp=observation_timestamp,
+        current_fof2_available=True,
         forecast_timestamp=source_timestamp + horizon_delta if horizon_delta is not None else None,
         generated_at=datetime.now(UTC),
         parameter=str(prediction_payload["parameter"]),

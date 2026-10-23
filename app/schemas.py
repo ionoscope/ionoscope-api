@@ -17,6 +17,8 @@ class ForecastRequest(BaseModel):
 class ForecastResponse(BaseModel):
     station: str
     source_timestamp: datetime
+    observation_timestamp: datetime | None = None
+    current_fof2_available: bool = False
     forecast_timestamp: datetime | None = None
     generated_at: datetime
     parameter: str
@@ -27,6 +29,8 @@ class ForecastResponse(BaseModel):
     model_version: str
     cached: bool = False
     explanation: str | None = None
+    freshness_status: str = "fresh"
+    freshness_message: str | None = None
 
 
 class ForecastStatusResponse(BaseModel):
@@ -39,6 +43,7 @@ class ForecastStatusResponse(BaseModel):
     forecast_timestamp: datetime | None = None
     generated_at: datetime | None = None
     age_minutes: float | None = None
+    source_age_minutes: float | None = None
     stale_after_minutes: float
     expire_after_minutes: float
 
