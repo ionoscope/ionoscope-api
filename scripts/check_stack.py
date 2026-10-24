@@ -50,7 +50,7 @@ def free_port():
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--report', help='Optional output JSON report')
-    parser.add_argument('--docker', action='store_true', help='Use prebuilt ionoscope-api-check-* images instead of local Python processes')
+    parser.add_argument('--docker', action='store_true', help='Use prebuilt ionoscope-*:dev images instead of local Python processes')
     parser.add_argument('--active-stations', action='store_true', help='Also verify station activity guards using an isolated live workspace')
     args = parser.parse_args()
     root = Path(__file__).resolve().parents[2]
@@ -147,7 +147,7 @@ def main():
                                 '--env','IONOSCOPE_ML_SERVICE_URL=http://ml:8002',
                                 '--env','IONOSCOPE_FORECAST_CACHE_DIR=/cache','--env','IONOSCOPE_REQUEST_TIMEOUT_SECONDS=5']
                         cmd += ['--env', 'IONOSCOPE_REQUIRE_ACTIVE_STATIONS=' + str(args.active_stations).lower()]
-                    cmd += ['ionoscope-api-check-'+['data-api','ml-service','api'][index]]
+                    cmd += [['ionoscope-data:dev', 'ionoscope-ml-service:dev', 'ionoscope-api:dev'][index]]
                     return ContainerProcess(cmd,container_name)
                 log = (work/(name+'.log')).open('a',encoding='utf-8'); logs.append(log)
                 return subprocess.Popen(command,cwd=root/name,env=env,stdout=log,stderr=log,

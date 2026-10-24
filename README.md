@@ -204,6 +204,8 @@ docker compose -f docker-compose.dev.yml -p ionoscope-api-check build data-api m
 Then run `python scripts/check_stack.py --docker --report ../output/api_verification/full_stack_docker.json`
 from this repository. Docker mode also requires the sibling infrastructure
 nginx configuration; generated containers/networks are removed after the check.
+It reuses the shared `ionoscope-data:dev`, `ionoscope-ml-service:dev` and
+`ionoscope-api:dev` images built by development Compose.
 
 Add `--active-stations` to check the production activity guard as well (69
 scenarios). This creates an isolated station registry and verifies fresh data,
