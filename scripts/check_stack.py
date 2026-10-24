@@ -51,6 +51,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--report', help='Optional output JSON report')
     parser.add_argument('--docker', action='store_true', help='Use prebuilt ionoscope-api-check-* images instead of local Python processes')
+    parser.add_argument('--active-stations', action='store_true', help='Also verify station activity guards using an isolated live workspace')
     args = parser.parse_args()
     root = Path(__file__).resolve().parents[2]
     results = []
@@ -78,6 +79,27 @@ def main():
                     'foF2_target_15min': 999})
             temporary.replace(path)
         write_features()
+        guarded_codes = ['TR169', 'AL945', 'AT138', 'CAJ2M']
+        def write_activity(excluded=None):
+            sys.path.insert(0, str(root/'ionoscope-data'))
+            from station_activity import assess_rows
+            checked = datetime.now(UTC)
+            stations = []
+            for code in guarded_codes:
+                case = (excluded or {}).get(code)
+                rows = [] if case == 'no_data' else [{'time_utc': (boundary-timedelta(minutes=5)).isoformat(), 'foF2': '5', 'CS': '20' if case == 'low_cs' else '70'}]
+                assessment = assess_rows(rows, checked)
+                if case == 'source_down':
+                    assessment = {'active': False, 'reason': 'source_unavailable', 'diagnosis': 'source_unavailable', 'last_observation': None, 'error': 'Simulated source outage'}
+                stations.append({'station': code, 'checked_at': checked.isoformat(), **assessment})
+            temporary = work/'registry.tmp'
+            temporary.write_text(json.dumps({'checked_at': checked.isoformat(), 'max_age_minutes': 60, 'stations': stations}), encoding='utf-8')
+            temporary.replace(work/'station_registry.json')
+        if args.active_stations:
+            write_activity()
+            (work/'state.json').write_text(json.dumps({'generation': '.', 'available_stations': guarded_codes}))
+            for code in guarded_codes[1:]:
+                (features/f'{code}_features.csv').write_bytes(path.read_bytes())
         ports = [free_port() for _ in range(3)]
         while len(set(ports)) != 3: ports = [free_port() for _ in range(3)]
         data_url, ml_url, api_url = [f'http://127.0.0.1:{port}' for port in ports]
@@ -89,6 +111,9 @@ def main():
                    IONOSCOPE_UPDATE_TASK_DIR=str(work/'tasks'),
                    IONOSCOPE_DATA_API_URL=data_url, IONOSCOPE_ML_SERVICE_URL=ml_url,
                    IONOSCOPE_FORECAST_CACHE_DIR=str(cache), IONOSCOPE_REQUEST_TIMEOUT_SECONDS='5')
+        env['IONOSCOPE_REQUIRE_ACTIVE_STATIONS'] = str(args.active_stations).lower()
+        if args.active_stations:
+            env['IONOSCOPE_DATA_WORKSPACE'] = str(work)
         data_code = ('from pathlib import Path; from api import update_tasks; '
                      f'update_tasks.TASK_DIR=Path({str(work / "tasks")!r}); '
                      f'import uvicorn; uvicorn.run("api.main:app",host="127.0.0.1",port={ports[0]})')
@@ -111,6 +136,8 @@ def main():
                         cmd += ['--mount',f'type=bind,source={work / "features"},target=/features,readonly',
                                 '--mount',f'type=bind,source={work / "tasks"},target=/tasks',
                                 '--env','IONOSCOPE_FEATURES_DIR=/features','--env','IONOSCOPE_UPDATE_TASK_DIR=/tasks']
+                        if args.active_stations:
+                            cmd += ['--mount', f'type=bind,source={work},target=/live', '--env', 'IONOSCOPE_DATA_WORKSPACE=/live']
                     elif index == 1:
                         cmd += ['--mount',f'type=bind,source={root / "ionoscope-ml-service/production_models"},target=/app/production_models,readonly']
                     else:
@@ -119,6 +146,7 @@ def main():
                                 '--env','IONOSCOPE_DATA_API_URL=http://data:8001',
                                 '--env','IONOSCOPE_ML_SERVICE_URL=http://ml:8002',
                                 '--env','IONOSCOPE_FORECAST_CACHE_DIR=/cache','--env','IONOSCOPE_REQUEST_TIMEOUT_SECONDS=5']
+                        cmd += ['--env', 'IONOSCOPE_REQUIRE_ACTIVE_STATIONS=' + str(args.active_stations).lower()]
                     cmd += ['ionoscope-api-check-'+['data-api','ml-service','api'][index]]
                     return ContainerProcess(cmd,container_name)
                 log = (work/(name+'.log')).open('a',encoding='utf-8'); logs.append(log)
@@ -174,6 +202,7 @@ def main():
                 stations = check('station list','GET',api_url+'/api/v1/forecast/stations')
                 assert any(s['code']=='TR169' and s['data_available'] for s in stations['stations'])
                 check('data station list','GET',data_url+'/api/v1/stations')
+                check('live worker status','GET',data_url+'/api/v1/live/status')
                 check('station detail','GET',data_url+'/api/v1/stations/tr169')
                 check('unknown station detail','GET',data_url+'/api/v1/stations/UNKNOWN',404)
                 latest = check('latest completed features','GET',data_url+'/api/v1/features/tr169/latest')
@@ -235,6 +264,27 @@ def main():
                 write_features()
                 (cache/'TR169.json').write_text('{broken')
                 check('recover corrupt cache','POST',api_url+'/api/v1/forecast',json={'station':'TR169'})
+                if args.active_stations:
+                    excluded = {}
+                    for code, case in [('AL945', 'low_cs'), ('AT138', 'no_data'), ('CAJ2M', 'source_down')]:
+                        check(f'{code} seed valid cache', 'POST', api_url+'/api/v1/forecast/refresh', json={'station': code})
+                        prior = (cache/f'{code}.json').read_bytes()
+                        excluded[code] = case
+                        write_activity(excluded)
+                        for endpoint in ['/api/v1/forecast', '/api/v1/forecast/refresh']:
+                            check(f'{case} rejects cached forecast via {endpoint}', 'POST', api_url+endpoint, 503, json={'station': code})
+                        check(f'{case} rejects cached status', 'GET', api_url+'/api/v1/forecast/status/'+code, 503)
+                        assert (cache/f'{code}.json').read_bytes() == prior
+                    visible = check('only active prepared stations listed', 'GET', api_url+'/api/v1/forecast/stations')
+                    assert [row['code'] for row in visible['stations']] == ['TR169']
+                    old = json.loads((cache/'TR169.json').read_text())
+                    for key in ['source_timestamp', 'source_interval_end', 'observation_timestamp', 'forecast_interval_start', 'forecast_timestamp', 'generated_at']:
+                        old[key] = (datetime.fromisoformat(old[key].replace('Z', '+00:00'))-timedelta(hours=3)).isoformat()
+                    (cache/'TR169.json').write_text(json.dumps(old))
+                    expired = check('expired target cache status', 'GET', api_url+'/api/v1/forecast/status/TR169')
+                    assert expired['status'] == 'expired' and not expired['is_usable']
+                    renewed = check('expired cache recomputed from current data', 'POST', api_url+'/api/v1/forecast', json={'station': 'TR169'})
+                    assert not renewed['cached'] and renewed['forecast_timestamp'] == forecast['forecast_timestamp']
                 queued = check('queue update','POST',data_url+'/api/v1/updates',202,json={'station':'TR169','start':'2025-01-01T00:00:00Z','end':'2025-01-02T00:00:00Z','sources':'giro'})
                 task = check('read update status','GET',data_url+'/api/v1/updates/'+queued['task_id'])
                 assert task['status']=='queued'
@@ -260,8 +310,8 @@ def main():
                 assert (cache/'TR169.json').read_bytes()==before
                 processes[0].terminate();processes[0].wait(timeout=10)
                 check('Data API connection failure','POST',api_url+'/api/v1/forecast/refresh',502,json={'station':'TR169'})
-                available_cache=check('valid cache survives upstream outage','POST',api_url+'/api/v1/forecast',json={'station':'TR169'})
-                assert available_cache['cached']
+                available_cache=check('activity guard during Data API outage' if args.active_stations else 'valid cache survives upstream outage','POST',api_url+'/api/v1/forecast',502 if args.active_stations else 200,json={'station':'TR169'})
+                if not args.active_stations: assert available_cache['cached']
                 expected_routes={(url,method,template) for url,document in documents.items() for template,ops in document['paths'].items() for method in ops if method in {'get','post','put','delete','patch'}}
                 assert not expected_routes-covered, ('Uncovered routes',expected_routes-covered)
             report={'passed':len(results),'routes_covered':len(covered),'routes_total':len(expected_routes),

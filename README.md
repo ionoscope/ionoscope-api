@@ -186,7 +186,7 @@ python scripts/check_stack.py --report ../output/api_verification/stack_checks.j
 ```
 
 This starts three temporary local servers on unused ports, uses isolated
-synthetic features and a real production ML artifact, checks all 16 routes in 53 HTTP scenarios,
+synthetic features and a real production ML artifact, checks all 17 routes in 54 scenarios,
 and stops all servers. It does not alter production data, queue, cache or models.
 Synthetic values check integration only; they do not validate forecast quality.
 
@@ -204,3 +204,11 @@ docker compose -f docker-compose.dev.yml -p ionoscope-api-check build data-api m
 Then run `python scripts/check_stack.py --docker --report ../output/api_verification/full_stack_docker.json`
 from this repository. Docker mode also requires the sibling infrastructure
 nginx configuration; generated containers/networks are removed after the check.
+
+Add `--active-stations` to check the production activity guard as well (69
+scenarios). This creates an isolated station registry and verifies fresh data,
+low CS, absent measurements, source errors, inactive stations with previously
+valid cache, and expired forecast targets. When the activity guard is enabled,
+the Data API must be reachable even for cache reads; its outage returns 502.
+The report uses synthetic data for failure scenarios and does not establish
+the real-time operating status or forecast quality of those station codes.
