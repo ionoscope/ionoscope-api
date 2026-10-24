@@ -79,8 +79,12 @@ Forecast response:
 {
   "station": "TR169",
   "source_timestamp": "2026-09-27T00:00:00Z",
-  "forecast_timestamp": "2026-09-27T00:15:00Z",
-  "generated_at": "2026-09-27T00:01:00Z",
+  "source_interval_end": "2026-09-27T00:15:00Z",
+  "forecast_interval_start": "2026-09-27T00:15:00Z",
+  "forecast_timestamp": "2026-09-27T00:30:00Z",
+  "observation_timestamp": "2026-09-27T00:10:00Z",
+  "current_fof2_available": true,
+  "generated_at": "2026-09-27T00:16:00Z",
   "parameter": "foF2",
   "prediction": 6.378,
   "unit": "MHz",
@@ -154,4 +158,49 @@ Forecast responses retain `source_timestamp` as the feature-grid label and add
 `observation_timestamp` plus `current_fof2_available`. Freshness checks require
 verified observation provenance; legacy cache without it must be recomputed.
 The observation must belong to the forecast interval and cannot be later than
-calculation time. Forecast target time is still grid time plus model horizon.
+calculation time. For interval-averaged features, forecast target END is source interval end plus
+model horizon. The target interval START is grid time plus model horizon.
+
+
+## HTTP contract verification
+
+Data API must provide `source_interval_end` exactly 15 minutes after the feature
+grid timestamp. The backend accepts only completed source intervals and actual
+observations inside them. For a 12:00–12:15 source interval and horizon 15min,
+`forecast_interval_start` is 12:15 and `forecast_timestamp` (target END) is 12:30.
+This agrees with the historical next-interval evaluation. Deploy the updated
+Data API and backend together; older payloads lacking interval end are rejected.
+
+Station codes are trimmed and normalized to uppercase. Invalid codes return
+422; unknown stations return 404. Missing prepared data or current observations
+return 503, malformed upstream payloads and connection failures return 502,
+and upstream timeouts return 504. An unusable new result never overwrites cache.
+Writes use atomic replacement; invalid/corrupt cache is treated as a miss.
+`/health` is liveness, not a guarantee of upstream or data readiness.
+
+From this repository, with sibling `ionoscope-data` and `ionoscope-ml-service`
+checkouts and their dependencies installed:
+
+```powershell
+python scripts/check_stack.py --report ../output/api_verification/stack_checks.json
+```
+
+This starts three temporary local servers on unused ports, uses isolated
+synthetic features and a real production ML artifact, checks all 16 routes in 53 HTTP scenarios,
+and stops all servers. It does not alter production data, queue, cache or models.
+Synthetic values check integration only; they do not validate forecast quality.
+
+
+Full contract checking requires `requirements-dev.txt` (jsonschema). The checker
+validates declared success/error response schemas, tests /docs and /redoc,
+40 parallel cache reads, a complete monthly feature range and queue persistence.
+
+For Linux containers and nginx, first build sibling services from infrastructure:
+
+```powershell
+docker compose -f docker-compose.dev.yml -p ionoscope-api-check build data-api ml-service api
+```
+
+Then run `python scripts/check_stack.py --docker --report ../output/api_verification/full_stack_docker.json`
+from this repository. Docker mode also requires the sibling infrastructure
+nginx configuration; generated containers/networks are removed after the check.

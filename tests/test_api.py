@@ -31,8 +31,9 @@ def write_cached_forecast(tmp_path, generated_at: datetime) -> None:
         f"""
         {{
           "station": "TR169",
-          "source_timestamp": "{generated_at.isoformat()}",
-          "observation_timestamp": "{generated_at.isoformat()}",
+          "source_timestamp": "{(generated_at - timedelta(minutes=15)).isoformat()}",
+          "observation_timestamp": "{(generated_at - timedelta(minutes=15)).isoformat()}",
+          "source_interval_end": "{generated_at.isoformat()}",
           "current_fof2_available": true,
           "forecast_timestamp": "{(generated_at + timedelta(hours=4)).isoformat()}",
           "generated_at": "{generated_at.isoformat().replace("+00:00", "Z")}",
@@ -57,16 +58,51 @@ def test_health() -> None:
     assert response.json() == {"status": "ok", "service": "ionoscope-api"}
 
 
+def test_inactive_station_cannot_return_cached_forecast(monkeypatch, tmp_path):
+    from dataclasses import replace
+    settings = replace(isolated_settings(tmp_path), require_active_stations=True)
+    write_cached_forecast(tmp_path, datetime.now(UTC))
+    monkeypatch.setattr('app.main.get_settings', lambda: settings)
+    async def station_metadata(*args):
+        return {'code': 'TR169', 'is_active': False}
+    monkeypatch.setattr(clients, 'get_json', station_metadata)
+    response = client.post('/api/v1/forecast', json={'station': 'TR169'})
+    assert response.status_code == 503
+    assert response.json()['detail']['code'] == 'station_inactive'
+
+
+def test_station_list_excludes_inactive_entries(monkeypatch, tmp_path):
+    monkeypatch.setattr('app.main.get_settings', lambda: isolated_settings(tmp_path))
+    async def stations(*args):
+        return {'stations': [{'code': 'TR169', 'is_active': True}, {'code': 'OLD00', 'is_active': False}]}
+    monkeypatch.setattr(clients, 'get_json', stations)
+    response = client.get('/api/v1/forecast/stations')
+    assert [station['code'] for station in response.json()['stations']] == ['TR169']
+
+
+def test_strict_station_list_requires_verified_ready_data(monkeypatch, tmp_path):
+    from dataclasses import replace
+    monkeypatch.setattr('app.main.get_settings', lambda: replace(isolated_settings(tmp_path), require_active_stations=True))
+    async def stations(*args):
+        return {'stations': [{'code': 'TR169', 'is_active': True, 'data_available': True},
+                             {'code': 'NEW00', 'is_active': True, 'data_available': False},
+                             {'code': 'OLD00', 'data_available': True}]}
+    monkeypatch.setattr(clients, 'get_json', stations)
+    response = client.get('/api/v1/forecast/stations')
+    assert [station['code'] for station in response.json()['stations']] == ['TR169']
+
+
 def test_refresh_forecast_combines_data_ml_and_writes_cache(monkeypatch, tmp_path) -> None:
     monkeypatch.setattr("app.main.get_settings", lambda: isolated_settings(tmp_path))
 
-    source_time = datetime.now(UTC) - timedelta(minutes=1)
+    source_time = datetime.now(UTC) - timedelta(minutes=16)
 
     async def fake_get_json(base_url, path, settings):
         assert path == "/api/v1/features/TR169/latest"
         return {
             "station": "TR169",
             "timestamp": source_time.isoformat(),
+            "source_interval_end": (source_time + timedelta(minutes=15)).isoformat(),
             "observation_timestamp": source_time.isoformat(),
             "current_fof2_available": True,
             "features": {"foF2": 5.84, "gfz_Kp": 3.0},
@@ -101,7 +137,9 @@ def test_refresh_forecast_combines_data_ml_and_writes_cache(monkeypatch, tmp_pat
         "source_timestamp": source_time.isoformat().replace("+00:00", "Z"),
         "observation_timestamp": source_time.isoformat().replace("+00:00", "Z"),
         "current_fof2_available": True,
-        "forecast_timestamp": (source_time + timedelta(minutes=15)).isoformat().replace("+00:00", "Z"),
+        "source_interval_end": (source_time + timedelta(minutes=15)).isoformat().replace("+00:00", "Z"),
+        "forecast_interval_start": (source_time + timedelta(minutes=15)).isoformat().replace("+00:00", "Z"),
+        "forecast_timestamp": (source_time + timedelta(minutes=30)).isoformat().replace("+00:00", "Z"),
         "parameter": "foF2",
         "prediction": 6.378,
         "unit": "MHz",
@@ -237,8 +275,9 @@ def test_unusable_cache_is_recomputed(monkeypatch, tmp_path, case):
     async def build(station, settings):
         calls.append(station)
         return ForecastResponse.model_validate({**payload,
-            "observation_timestamp": now - timedelta(minutes=1),
-            "source_timestamp": now - timedelta(minutes=1),
+            "observation_timestamp": now - timedelta(minutes=16),
+            "source_interval_end": now - timedelta(minutes=1),
+            "source_timestamp": now - timedelta(minutes=16),
             "forecast_timestamp": now + timedelta(minutes=14), "generated_at": now})
 
     monkeypatch.setattr("app.main.build_forecast", build)
@@ -295,7 +334,7 @@ def test_freshness_time_rules(tmp_path, case):
     from app.forecast_cache import evaluate_forecast
     from app.schemas import ForecastResponse
     now = datetime(2026, 10, 23, 12, tzinfo=UTC)
-    payload = dict(station="TR169", source_timestamp=now-timedelta(minutes=1),
+    payload = dict(station="TR169", source_timestamp=now-timedelta(minutes=16),
         forecast_timestamp=now+timedelta(hours=4), generated_at=now,
         parameter="foF2", prediction=5, unit="MHz", horizon="4h", model="test", model_version="test")
     expected = "expired"
@@ -315,6 +354,7 @@ def test_freshness_time_rules(tmp_path, case):
     else:
         payload = {key: value.replace(tzinfo=None) if isinstance(value, datetime) else value for key, value in payload.items()}
         expected = "fresh"
+    payload["source_interval_end"] = payload["source_timestamp"] + timedelta(minutes=15)
     payload["observation_timestamp"] = payload["source_timestamp"]
     payload["current_fof2_available"] = True
     result = evaluate_forecast(ForecastResponse(**payload), isolated_settings(tmp_path), now=now)

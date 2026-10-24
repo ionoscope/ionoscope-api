@@ -16,10 +16,12 @@ class Settings:
     forecast_cache_dir: Path = PROJECT_ROOT / "forecast_cache"
     forecast_stale_after_minutes: float = 30.0
     forecast_expire_after_minutes: float = 120.0
+    require_active_stations: bool = False
 
 
 def get_settings() -> Settings:
     return Settings(
+        require_active_stations=os.getenv('IONOSCOPE_REQUIRE_ACTIVE_STATIONS', 'false').lower() == 'true',
         data_api_url=os.getenv("IONOSCOPE_DATA_API_URL", Settings.data_api_url).rstrip("/"),
         ml_service_url=os.getenv("IONOSCOPE_ML_SERVICE_URL", Settings.ml_service_url).rstrip("/"),
         request_timeout_seconds=float(
