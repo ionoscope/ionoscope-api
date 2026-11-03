@@ -1,0 +1,82 @@
+{
+  "forecast_id": "TR169_0123456789abcdef0123456789abcdef",
+  "station": "TR169",
+  "parameter": "foF2",
+  "role": "geodesist",
+  "unit": "MHz",
+  "horizon": "15min",
+  "prediction": 6.378,
+  "source_timestamp": "2026-09-27T00:00:00Z",
+  "source_interval_end": "2026-09-27T00:15:00Z",
+  "forecast_interval_start": "2026-09-27T00:15:00Z",
+  "forecast_timestamp": "2026-09-27T00:30:00Z",
+  "observation_timestamp": "2026-09-27T00:10:00Z",
+  "current_fof2_available": true,
+  "generated_at": "2026-09-27T00:16:00Z",
+  "model": "HistGradientBoostingRegressor",
+  "model_version": "0.2.0",
+  "cached": false,
+  "freshness_status": "fresh",
+  "freshness_message": "Forecast and source observations are fresh.",
+  "stale_after": "2026-09-27T00:30:00Z",
+  "valid_until": "2026-09-27T00:30:00Z",
+  "series": {
+    "step_minutes": 15,
+    "observed": [
+      {
+        "t": "2026-09-26T23:45:00Z",
+        "value": null
+      },
+      {
+        "t": "2026-09-27T00:00:00Z",
+        "value": 6.21
+      }
+    ],
+    "forecast": [
+      {
+        "t_start": "2026-09-27T00:15:00Z",
+        "t_end": "2026-09-27T00:30:00Z",
+        "value": 6.378,
+        "lower": null,
+        "upper": null
+      }
+    ]
+  },
+  "table": {
+    "columns": [
+      {
+        "key": "time",
+        "label": "Time (UTC)",
+        "unit": null
+      },
+      {
+        "key": "kind",
+        "label": "Type",
+        "unit": null
+      },
+      {
+        "key": "foF2",
+        "label": "foF2 (MHz)",
+        "unit": "MHz"
+      }
+    ],
+    "rows": [
+      {
+        "time": "2026-09-26T23:45:00Z",
+        "kind": "observed",
+        "foF2": null
+      },
+      {
+        "time": "2026-09-27T00:00:00Z",
+        "kind": "observed",
+        "foF2": 6.21
+      },
+      {
+        "time": "2026-09-27T00:30:00Z",
+        "kind": "forecast",
+        "foF2": 6.378
+      }
+    ]
+  },
+  "explanation": null
+}

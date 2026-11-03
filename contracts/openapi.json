@@ -1,0 +1,1808 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "IonoScope API",
+    "description": "Main backend API that orchestrates prepared data and ML forecasts.",
+    "version": "0.2.0"
+  },
+  "paths": {
+    "/api/v1/forecast/parameters": {
+      "get": {
+        "summary": "Parameters",
+        "operationId": "listForecastParameters",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Parameter"
+                  },
+                  "type": "array",
+                  "title": "Response Listforecastparameters"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Method Not Allowed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Bad Gateway",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Gateway Timeout",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/explain": {
+      "post": {
+        "summary": "Explain",
+        "operationId": "explainForecast",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExplainRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "SSE events: start, delta, done (text, model), error (code, message)",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "type": "string"
+                },
+                "example": "event: delta\ndata: {\"text\":\"Explanation\"}\n\n"
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Method Not Allowed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Bad Gateway",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Gateway Timeout",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/health": {
+      "get": {
+        "tags": [
+          "health"
+        ],
+        "summary": "Health",
+        "operationId": "health",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Method Not Allowed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Bad Gateway",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Gateway Timeout",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/forecast/stations": {
+      "get": {
+        "tags": [
+          "forecast"
+        ],
+        "summary": "Forecast Stations",
+        "operationId": "forecast_stations",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StationListResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Method Not Allowed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Bad Gateway",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Gateway Timeout",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/forecast": {
+      "post": {
+        "tags": [
+          "forecast"
+        ],
+        "summary": "Forecast",
+        "operationId": "forecast",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ForecastRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ForecastResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Method Not Allowed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Bad Gateway",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Gateway Timeout",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/forecast/refresh": {
+      "post": {
+        "tags": [
+          "forecast"
+        ],
+        "summary": "Refresh Forecast",
+        "operationId": "refresh_forecast",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ForecastRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ForecastResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Method Not Allowed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Bad Gateway",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Gateway Timeout",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/forecast/status/{station}": {
+      "get": {
+        "tags": [
+          "forecast"
+        ],
+        "summary": "Forecast Status",
+        "operationId": "forecast_status",
+        "parameters": [
+          {
+            "name": "station",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 32,
+              "pattern": "^[A-Za-z0-9_-]+$",
+              "title": "Station"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ForecastStatusResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "405": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Method Not Allowed"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Gateway"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          },
+          "504": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Gateway Timeout"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Column": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "label",
+          "unit"
+        ],
+        "title": "Column"
+      },
+      "ErrorDetail": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "enum": [
+              "invalid_station",
+              "station_not_found",
+              "parameter_unavailable",
+              "forecast_unavailable",
+              "insufficient_observations",
+              "forecast_expired",
+              "explanation_unavailable",
+              "upstream_error",
+              "upstream_timeout",
+              "invalid_request",
+              "station_inactive",
+              "cache_unavailable",
+              "not_found",
+              "request_error",
+              "internal_error",
+              "rate_limited"
+            ],
+            "title": "Code"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code",
+          "message"
+        ],
+        "title": "ErrorDetail"
+      },
+      "ErrorResponse": {
+        "properties": {
+          "detail": {
+            "$ref": "#/components/schemas/ErrorDetail"
+          }
+        },
+        "type": "object",
+        "required": [
+          "detail"
+        ],
+        "title": "ErrorResponse",
+        "examples": [
+          {
+            "detail": {
+              "code": "forecast_unavailable",
+              "message": "Forecast is unavailable"
+            }
+          }
+        ]
+      },
+      "ExplainRequest": {
+        "properties": {
+          "forecast_id": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Z0-9_-]+_[0-9a-f]{32}$",
+            "title": "Forecast Id"
+          },
+          "role": {
+            "$ref": "#/components/schemas/Role",
+            "default": "geodesist"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "forecast_id"
+        ],
+        "title": "ExplainRequest",
+        "examples": [
+          {
+            "forecast_id": "TR169_0123456789abcdef0123456789abcdef",
+            "role": "geodesist"
+          }
+        ]
+      },
+      "ForecastPoint": {
+        "properties": {
+          "t_start": {
+            "type": "string",
+            "format": "date-time",
+            "title": "T Start"
+          },
+          "t_end": {
+            "type": "string",
+            "format": "date-time",
+            "title": "T End"
+          },
+          "value": {
+            "type": "number",
+            "title": "Value"
+          },
+          "lower": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lower"
+          },
+          "upper": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Upper"
+          }
+        },
+        "type": "object",
+        "required": [
+          "t_start",
+          "t_end",
+          "value",
+          "lower",
+          "upper"
+        ],
+        "title": "ForecastPoint"
+      },
+      "ForecastRequest": {
+        "properties": {
+          "role": {
+            "$ref": "#/components/schemas/Role",
+            "default": "geodesist"
+          },
+          "parameter": {
+            "type": "string",
+            "title": "Parameter",
+            "default": "foF2"
+          },
+          "station": {
+            "type": "string",
+            "maxLength": 32,
+            "minLength": 1,
+            "pattern": "^[A-Z0-9_-]+$",
+            "title": "Station"
+          }
+        },
+        "type": "object",
+        "required": [
+          "station"
+        ],
+        "title": "ForecastRequest",
+        "examples": [
+          {
+            "station": "TR169",
+            "parameter": "foF2",
+            "role": "geodesist"
+          }
+        ]
+      },
+      "ForecastResponse": {
+        "properties": {
+          "forecast_id": {
+            "type": "string",
+            "title": "Forecast Id",
+            "default": ""
+          },
+          "role": {
+            "$ref": "#/components/schemas/Role",
+            "default": "geodesist"
+          },
+          "series": {
+            "$ref": "#/components/schemas/Series"
+          },
+          "table": {
+            "$ref": "#/components/schemas/Table"
+          },
+          "stale_after": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stale After"
+          },
+          "valid_until": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Valid Until"
+          },
+          "station": {
+            "type": "string",
+            "title": "Station"
+          },
+          "source_timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Source Timestamp"
+          },
+          "source_interval_end": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Interval End"
+          },
+          "forecast_interval_start": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Forecast Interval Start"
+          },
+          "observation_timestamp": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Observation Timestamp"
+          },
+          "current_fof2_available": {
+            "type": "boolean",
+            "title": "Current Fof2 Available",
+            "default": false
+          },
+          "forecast_timestamp": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Forecast Timestamp"
+          },
+          "generated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Generated At"
+          },
+          "parameter": {
+            "type": "string",
+            "title": "Parameter"
+          },
+          "prediction": {
+            "type": "number",
+            "title": "Prediction"
+          },
+          "unit": {
+            "type": "string",
+            "title": "Unit"
+          },
+          "horizon": {
+            "type": "string",
+            "title": "Horizon"
+          },
+          "model": {
+            "type": "string",
+            "title": "Model"
+          },
+          "model_version": {
+            "type": "string",
+            "title": "Model Version"
+          },
+          "cached": {
+            "type": "boolean",
+            "title": "Cached",
+            "default": false
+          },
+          "explanation": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Explanation"
+          },
+          "freshness_status": {
+            "type": "string",
+            "title": "Freshness Status",
+            "default": "fresh"
+          },
+          "freshness_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Freshness Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "forecast_id",
+          "role",
+          "series",
+          "table",
+          "stale_after",
+          "valid_until",
+          "station",
+          "source_timestamp",
+          "source_interval_end",
+          "forecast_interval_start",
+          "observation_timestamp",
+          "current_fof2_available",
+          "forecast_timestamp",
+          "generated_at",
+          "parameter",
+          "prediction",
+          "unit",
+          "horizon",
+          "model",
+          "model_version",
+          "cached",
+          "explanation",
+          "freshness_status",
+          "freshness_message"
+        ],
+        "title": "ForecastResponse",
+        "examples": [
+          {
+            "forecast_id": "TR169_0123456789abcdef0123456789abcdef",
+            "station": "TR169",
+            "parameter": "foF2",
+            "role": "geodesist",
+            "unit": "MHz",
+            "horizon": "15min",
+            "prediction": 6.378,
+            "source_timestamp": "2026-09-27T00:00:00Z",
+            "source_interval_end": "2026-09-27T00:15:00Z",
+            "forecast_interval_start": "2026-09-27T00:15:00Z",
+            "forecast_timestamp": "2026-09-27T00:30:00Z",
+            "observation_timestamp": "2026-09-27T00:10:00Z",
+            "current_fof2_available": true,
+            "generated_at": "2026-09-27T00:16:00Z",
+            "model": "HistGradientBoostingRegressor",
+            "model_version": "0.2.0",
+            "cached": false,
+            "freshness_status": "fresh",
+            "freshness_message": "Forecast and source observations are fresh.",
+            "stale_after": "2026-09-27T00:30:00Z",
+            "valid_until": "2026-09-27T00:30:00Z",
+            "series": {
+              "step_minutes": 15,
+              "observed": [
+                {
+                  "t": "2026-09-26T23:45:00Z",
+                  "value": null
+                },
+                {
+                  "t": "2026-09-27T00:00:00Z",
+                  "value": 6.21
+                }
+              ],
+              "forecast": [
+                {
+                  "t_start": "2026-09-27T00:15:00Z",
+                  "t_end": "2026-09-27T00:30:00Z",
+                  "value": 6.378,
+                  "lower": null,
+                  "upper": null
+                }
+              ]
+            },
+            "table": {
+              "columns": [
+                {
+                  "key": "time",
+                  "label": "Time (UTC)",
+                  "unit": null
+                },
+                {
+                  "key": "kind",
+                  "label": "Type",
+                  "unit": null
+                },
+                {
+                  "key": "foF2",
+                  "label": "foF2 (MHz)",
+                  "unit": "MHz"
+                }
+              ],
+              "rows": [
+                {
+                  "time": "2026-09-26T23:45:00Z",
+                  "kind": "observed",
+                  "foF2": null
+                },
+                {
+                  "time": "2026-09-27T00:00:00Z",
+                  "kind": "observed",
+                  "foF2": 6.21
+                },
+                {
+                  "time": "2026-09-27T00:30:00Z",
+                  "kind": "forecast",
+                  "foF2": 6.378
+                }
+              ]
+            },
+            "explanation": null
+          }
+        ]
+      },
+      "ForecastStatusResponse": {
+        "properties": {
+          "stale_after": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stale After"
+          },
+          "valid_until": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Valid Until"
+          },
+          "station": {
+            "type": "string",
+            "title": "Station"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "cache_available": {
+            "type": "boolean",
+            "title": "Cache Available"
+          },
+          "is_usable": {
+            "type": "boolean",
+            "title": "Is Usable"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "source_timestamp": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Timestamp"
+          },
+          "forecast_timestamp": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Forecast Timestamp"
+          },
+          "generated_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Generated At"
+          },
+          "age_minutes": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Age Minutes"
+          },
+          "source_age_minutes": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Age Minutes"
+          },
+          "stale_after_minutes": {
+            "type": "number",
+            "title": "Stale After Minutes"
+          },
+          "expire_after_minutes": {
+            "type": "number",
+            "title": "Expire After Minutes"
+          }
+        },
+        "type": "object",
+        "required": [
+          "stale_after",
+          "valid_until",
+          "station",
+          "status",
+          "cache_available",
+          "is_usable",
+          "message",
+          "source_timestamp",
+          "forecast_timestamp",
+          "generated_at",
+          "age_minutes",
+          "source_age_minutes",
+          "stale_after_minutes",
+          "expire_after_minutes"
+        ],
+        "title": "ForecastStatusResponse",
+        "examples": [
+          {
+            "stale_after": null,
+            "valid_until": null,
+            "station": "TR169",
+            "status": "missing",
+            "cache_available": false,
+            "is_usable": false,
+            "message": "No cached forecast is available.",
+            "source_timestamp": null,
+            "forecast_timestamp": null,
+            "generated_at": null,
+            "age_minutes": null,
+            "source_age_minutes": null,
+            "stale_after_minutes": 30.0,
+            "expire_after_minutes": 120.0
+          }
+        ]
+      },
+      "HealthResponse": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "service": {
+            "type": "string",
+            "title": "Service"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "service"
+        ],
+        "title": "HealthResponse",
+        "examples": [
+          {
+            "status": "ok",
+            "service": "ionoscope-api"
+          }
+        ]
+      },
+      "ObservedPoint": {
+        "properties": {
+          "t": {
+            "type": "string",
+            "format": "date-time",
+            "title": "T"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          }
+        },
+        "type": "object",
+        "required": [
+          "t",
+          "value"
+        ],
+        "title": "ObservedPoint"
+      },
+      "Parameter": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "unit": {
+            "type": "string",
+            "title": "Unit"
+          },
+          "available": {
+            "type": "boolean",
+            "title": "Available"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "label",
+          "unit",
+          "available"
+        ],
+        "title": "Parameter",
+        "examples": [
+          {
+            "id": "foF2",
+            "label": "foF2",
+            "unit": "MHz",
+            "available": true
+          }
+        ]
+      },
+      "Role": {
+        "type": "string",
+        "enum": [
+          "drone_pilot",
+          "geodesist",
+          "aviation_emergency"
+        ],
+        "title": "Role"
+      },
+      "Series": {
+        "properties": {
+          "step_minutes": {
+            "type": "integer",
+            "const": 15,
+            "title": "Step Minutes",
+            "default": 15
+          },
+          "observed": {
+            "items": {
+              "$ref": "#/components/schemas/ObservedPoint"
+            },
+            "type": "array",
+            "title": "Observed"
+          },
+          "forecast": {
+            "items": {
+              "$ref": "#/components/schemas/ForecastPoint"
+            },
+            "type": "array",
+            "title": "Forecast"
+          }
+        },
+        "type": "object",
+        "required": [
+          "step_minutes",
+          "observed",
+          "forecast"
+        ],
+        "title": "Series"
+      },
+      "Station": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name",
+            "default": ""
+          },
+          "lat": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lat"
+          },
+          "lon": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lon"
+          },
+          "active": {
+            "type": "boolean",
+            "title": "Active",
+            "default": false
+          },
+          "freshness_status": {
+            "type": "string",
+            "title": "Freshness Status",
+            "default": "missing"
+          },
+          "stale_after": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stale After"
+          },
+          "valid_until": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Valid Until"
+          },
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "country": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Country"
+          },
+          "location": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location"
+          },
+          "system_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "System Type"
+          },
+          "latitude": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latitude"
+          },
+          "longitude": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Longitude"
+          },
+          "longitude_180": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Longitude 180"
+          },
+          "data_available": {
+            "type": "boolean",
+            "title": "Data Available",
+            "default": false
+          },
+          "is_active": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Active"
+          },
+          "activity_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Activity Reason"
+          },
+          "last_observation": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Observation"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "lat",
+          "lon",
+          "active",
+          "freshness_status",
+          "stale_after",
+          "valid_until",
+          "code",
+          "country",
+          "location",
+          "system_type",
+          "latitude",
+          "longitude",
+          "longitude_180",
+          "data_available",
+          "is_active",
+          "activity_reason",
+          "last_observation"
+        ],
+        "title": "Station"
+      },
+      "StationListResponse": {
+        "properties": {
+          "stations": {
+            "items": {
+              "$ref": "#/components/schemas/Station"
+            },
+            "type": "array",
+            "title": "Stations"
+          }
+        },
+        "type": "object",
+        "required": [
+          "stations"
+        ],
+        "title": "StationListResponse",
+        "examples": [
+          {
+            "stations": [
+              {
+                "name": "Tromso",
+                "lat": 69.6,
+                "lon": 19.2,
+                "active": true,
+                "freshness_status": "missing",
+                "stale_after": null,
+                "valid_until": null,
+                "code": "TR169",
+                "country": null,
+                "location": null,
+                "system_type": null,
+                "latitude": null,
+                "longitude": null,
+                "longitude_180": null,
+                "data_available": false,
+                "is_active": null,
+                "activity_reason": null,
+                "last_observation": null
+              }
+            ]
+          }
+        ]
+      },
+      "Table": {
+        "properties": {
+          "columns": {
+            "items": {
+              "$ref": "#/components/schemas/Column"
+            },
+            "type": "array",
+            "title": "Columns"
+          },
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/TableRow"
+            },
+            "type": "array",
+            "title": "Rows"
+          }
+        },
+        "type": "object",
+        "required": [
+          "columns",
+          "rows"
+        ],
+        "title": "Table"
+      },
+      "TableRow": {
+        "properties": {
+          "time": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Time"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "observed",
+              "forecast"
+            ],
+            "title": "Kind"
+          },
+          "foF2": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fof2"
+          }
+        },
+        "type": "object",
+        "required": [
+          "time",
+          "kind",
+          "foF2"
+        ],
+        "title": "TableRow"
+      }
+    }
+  }
+}

@@ -2,7 +2,7 @@
 
 Main backend API for the IonoScope frontend.
 
-Version `0.1.0` implements the first forecast orchestration path:
+Version `0.2.0` implements the first forecast orchestration path:
 
 - accept a station selected by the user;
 - call `ionoscope-data` for the latest prepared features;
@@ -10,9 +10,49 @@ Version `0.1.0` implements the first forecast orchestration path:
 - cache the generated forecast;
 - return one frontend-ready response.
 
-LLM explanations are not connected yet. The response already keeps an
-`explanation` field so a separate explanation service can be added later without
-changing the forecast contract.
+The frontend contract includes a 15-minute history grid (missing observations are null),
+forecast points, CSV-ready table rows, roles and opaque forecast IDs. API version and
+ML model version are independent: model_version reports the actual loaded model.
+
+POST /api/v1/explain accepts only forecast_id and role. SSE emits start, delta,
+done (text, model), or error (code, message). Explanations use a separate persistent
+cache by (forecast_id, role). Refreshing a station does not discard still-valid IDs.
+Expired IDs return HTTP 409 forecast_expired before opening the stream.
+Without a configured LLM, the stream emits explanation_unavailable; forecasts still work.
+The configured provider must implement an OpenAI-compatible streaming chat completions
+endpoint (including the final [DONE] marker). No provider calls happen in /forecast.
+Only the computed summary is sent to the provider, never raw features or observations.
+
+Additional environment variables:
+
+- IONOSCOPE_HISTORY_HOURS: 24 by default, 1–168 via environment configuration.
+- IONOSCOPE_CORS_ORIGINS: comma-separated origins, default http://localhost:4200.
+- IONOSCOPE_LLM_URL: full streaming chat completions URL (unset by default).
+- IONOSCOPE_LLM_MODEL: provider model identifier.
+- IONOSCOPE_LLM_API_KEY: optional bearer token, configure outside source control.
+- IONOSCOPE_LLM_TIMEOUT_SECONDS: 60 by default.
+
+All public timestamps are UTC with Z; naive input is interpreted as UTC.
+Freshness deadlines follow the oldest calculation/source/observation timestamp;
+valid_until is also capped at the forecast target. The API does not relabel old
+source data as fresh based on a new calculation time.
+
+Data API must include the allow_partial history option introduced with this contract.
+Live workers request 192 hours initially; actual available history depends on collection
+success and the station. Partial coverage produces null chart points, not invented data.
+
+Machine-readable frontend files are in contracts/: openapi.json and forecast.example.json.
+The compact example illustrates gaps and table correspondence, rather than a full day.
+Errors always use {"detail":{"code":"...","message":"..."}}.
+Stable forecast codes: invalid_station (422), station_not_found (404),
+parameter_unavailable (409), forecast_unavailable / insufficient_observations (503),
+forecast_expired (409), upstream_error (502), upstream_timeout (504).
+Additional codes: invalid_request (422), station_inactive / cache_unavailable (503),
+not_found (404), request_error (e.g. 405), internal_error (500), rate_limited (429 at nginx),
+and explanation_unavailable in SSE. Display text should be selected by code.
+
+GET /api/v1/forecast/parameters lists foF2, MUF, TEC. Station list keeps its stations
+wrapper and legacy metadata, adding name, lat, lon, active, freshness_status and deadlines.
 
 ## Install
 

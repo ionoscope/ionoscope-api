@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import math
+from urllib.parse import urlencode
+from uuid import uuid4
 import re
 
 from datetime import UTC, datetime, timedelta
@@ -10,7 +12,7 @@ import httpx
 from pydantic import ValidationError
 
 from .config import Settings
-from .schemas import ForecastResponse, StationListResponse
+from .schemas import ForecastResponse, StationListResponse, Series, ObservedPoint, ForecastPoint, Table, Column, TableRow
 
 
 class InsufficientObservationError(RuntimeError):
@@ -60,7 +62,7 @@ async def _build_forecast(station: str, settings: Settings) -> ForecastResponse:
     value = features.get("foF2")
     observation = feature_payload.get("observation_timestamp")
     if (feature_payload.get("current_fof2_available") is not True
-            or not isinstance(value, (int, float)) or not math.isfinite(value)
+            or isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value)
             or not observation):
         raise InsufficientObservationError(
             "Current foF2 with a verified observation timestamp is required. "
@@ -88,7 +90,8 @@ async def _build_forecast(station: str, settings: Settings) -> ForecastResponse:
         raise UpstreamServiceError("ML service returned an unexpected parameter or unit")
     horizon = str(prediction_payload["horizon"])
     horizon_delta = parse_horizon(horizon)
-    return ForecastResponse(
+    result = ForecastResponse(
+        forecast_id=f"{station}_{uuid4().hex}",
         station=str(prediction_payload["station"]),
         source_timestamp=source_timestamp,
         source_interval_end=interval_end,
@@ -107,6 +110,37 @@ async def _build_forecast(station: str, settings: Settings) -> ForecastResponse:
         explanation=None,
     )
 
+    await add_presentation(result, settings, feature_payload)
+    return result
+
+
+async def add_presentation(result: ForecastResponse, settings: Settings, latest: dict) -> None:
+    end = result.source_timestamp.replace(minute=(result.source_timestamp.minute // 15)*15, second=0, microsecond=0)
+    start = end - timedelta(hours=settings.history_hours)
+    query = urlencode({"start": start.isoformat(), "end": end.isoformat(), "allow_partial": "true"})
+    payload = await get_json(settings.data_api_url, f"/api/v1/features/{result.station}?{query}", settings)
+    if str(payload.get("station", "")).upper() != result.station.upper() or not isinstance(payload.get("records"), list):
+        raise UpstreamServiceError("Data API returned an invalid observation history")
+    points = {}
+    for record in payload["records"] + [latest]:
+        if str(record.get("station", "")).upper() != result.station.upper():
+            raise UpstreamServiceError("Data API returned a different history station")
+        t = utc_timestamp(record["timestamp"])
+        value = record.get("features", {}).get("foF2")
+        observation = record.get("observation_timestamp")
+        if (record.get("current_fof2_available") is True and observation
+                and t <= utc_timestamp(observation) < t + timedelta(minutes=15)
+                and isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value)):
+            points[t.replace(minute=(t.minute // 15)*15, second=0, microsecond=0)] = value
+    observed = [ObservedPoint(t=start+timedelta(minutes=15*i), value=points.get(start+timedelta(minutes=15*i)))
+                for i in range(settings.history_hours*4+1)]
+    result.series = Series(observed=observed, forecast=[ForecastPoint(
+        t_start=result.forecast_interval_start, t_end=result.forecast_timestamp, value=result.prediction)])
+    result.table = Table(columns=[Column(key="time", label="Время (UTC)"), Column(key="kind", label="Тип"),
+                                 Column(key="foF2", label="foF2 (MHz)", unit="MHz")],
+                         rows=[TableRow(time=p.t, kind="observed", foF2=p.value) for p in observed]
+                         + [TableRow(time=result.forecast_timestamp, kind="forecast", foF2=result.prediction)])
+
 
 async def get_json(base_url: str, path: str, settings: Settings) -> dict[str, Any]:
     async with httpx.AsyncClient(timeout=settings.request_timeout_seconds) as client:
@@ -119,7 +153,7 @@ async def get_json(base_url: str, path: str, settings: Settings) -> dict[str, An
             detail = {}
         if isinstance(detail, dict) and detail.get("code") == "station_not_found":
             raise UpstreamServiceError("Station was not found", 404, "station_not_found")
-        raise UpstreamServiceError("Prepared data is unavailable for this station", 503, "data_unavailable")
+        raise UpstreamServiceError("Prepared data is unavailable for this station", 503, "forecast_unavailable")
     return parse_response(response)
 
 
@@ -131,7 +165,7 @@ async def post_json(base_url: str, path: str, payload: dict[str, Any], settings:
 
 def parse_response(response: httpx.Response) -> dict[str, Any]:
     if response.status_code >= 400:
-        raise UpstreamServiceError(f"{response.request.url} returned {response.status_code}: {response.text}")
+        raise UpstreamServiceError(f"Upstream service returned HTTP {response.status_code}")
     try:
         payload = response.json()
     except ValueError as exc:

@@ -37,6 +37,8 @@ def upstream(monkeypatch, tmp_path):
             if case == 'bad_timestamp': payload['timestamp'] = 'not-a-date'
             if case == 'incomplete_interval': payload['source_interval_end'] = (start+timedelta(minutes=30)).isoformat()
             if case == 'missing_interval_end': payload.pop('source_interval_end')
+            if request.url.path == '/api/v1/features/TR169':
+                return httpx.Response(200, json={'station': 'TR169', 'records': [payload]})
             return httpx.Response(200, json=payload)
         state['ml_calls'] += 1
         if case == 'ml_down': raise httpx.ConnectError('offline', request=request)

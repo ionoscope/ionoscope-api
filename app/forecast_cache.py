@@ -4,7 +4,7 @@ import json
 import re
 import os
 import tempfile
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from pydantic import ValidationError
 
@@ -35,6 +35,26 @@ def load_forecast(station: str, settings: Settings) -> ForecastResponse:
 
 def save_forecast(forecast: ForecastResponse, settings: Settings) -> ForecastResponse:
     settings.forecast_cache_dir.mkdir(parents=True, exist_ok=True)
+    if forecast.forecast_id:
+        snapshots = settings.forecast_cache_dir / "by_id"
+        snapshots.mkdir(parents=True, exist_ok=True)
+        snapshot = snapshots / f"{forecast.forecast_id}.json"
+        temporary_snapshot = None
+        try:
+            with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=snapshots, suffix=".tmp", delete=False) as handle:
+                temporary_snapshot = Path(handle.name)
+                handle.write(forecast.model_dump_json())
+            os.replace(temporary_snapshot, snapshot)
+        finally:
+            if temporary_snapshot:
+                temporary_snapshot.unlink(missing_ok=True)
+        cutoff = datetime.now(UTC).timestamp() - settings.forecast_expire_after_minutes * 60
+        for old in snapshots.glob("*.json"):
+            try:
+                if old.stat().st_mtime < cutoff:
+                    old.unlink(missing_ok=True)
+            except OSError:
+                pass
     payload = forecast.model_dump(mode="json")
     payload["cached"] = False
     temporary = None
@@ -112,6 +132,8 @@ def evaluate_forecast(
         message = "Forecast and source observations are fresh."
 
     return ForecastStatusResponse(
+        stale_after=min(generated_at, source_timestamp, observation or source_timestamp) + timedelta(minutes=settings.forecast_stale_after_minutes),
+        valid_until=min(forecast_timestamp or now, min(generated_at, source_timestamp, observation or source_timestamp) + timedelta(minutes=settings.forecast_expire_after_minutes)),
         station=forecast.station,
         status=status,
         cache_available=True,
@@ -136,3 +158,17 @@ def ensure_aware_utc(value: datetime) -> datetime:
     if value.tzinfo is None:
         return value.replace(tzinfo=UTC)
     return value.astimezone(UTC)
+
+
+def load_forecast_by_id(forecast_id: str, settings: Settings) -> ForecastResponse:
+    # Defense in depth: callers validate IDs before any filesystem access.
+    if not re.fullmatch(r"[A-Z0-9_-]+_[0-9a-f]{32}", forecast_id):
+        raise ForecastCacheMiss("Invalid forecast ID")
+    try:
+        result = ForecastResponse.model_validate_json(
+            (settings.forecast_cache_dir / "by_id" / f"{forecast_id}.json").read_text(encoding="utf-8"))
+        if result.forecast_id != forecast_id:
+            raise ForecastCacheMiss("Forecast ID mismatch")
+        return result
+    except (OSError, ValueError) as exc:
+        raise ForecastCacheMiss("Forecast is no longer cached") from exc

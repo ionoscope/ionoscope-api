@@ -30,6 +30,8 @@ def write_cached_forecast(tmp_path, generated_at: datetime) -> None:
     (tmp_path / "TR169.json").write_text(
         f"""
         {{
+          "forecast_id": "TR169_0123456789abcdef0123456789abcdef",
+          "series": {{"forecast": [{{"t_start": "{generated_at.isoformat()}", "t_end": "{(generated_at + timedelta(hours=4)).isoformat()}", "value": 6.378}}]}},
           "station": "TR169",
           "source_timestamp": "{(generated_at - timedelta(minutes=15)).isoformat()}",
           "observation_timestamp": "{(generated_at - timedelta(minutes=15)).isoformat()}",
@@ -98,6 +100,8 @@ def test_refresh_forecast_combines_data_ml_and_writes_cache(monkeypatch, tmp_pat
     source_time = datetime.now(UTC) - timedelta(minutes=16)
 
     async def fake_get_json(base_url, path, settings):
+        if path.startswith("/api/v1/features/TR169?"):
+            return {"station": "TR169", "records": []}
         assert path == "/api/v1/features/TR169/latest"
         return {
             "station": "TR169",
@@ -132,6 +136,12 @@ def test_refresh_forecast_combines_data_ml_and_writes_cache(monkeypatch, tmp_pat
     assert generated_at.startswith("202")
     assert payload.pop("freshness_status") == "fresh"
     assert payload.pop("freshness_message")
+    assert payload.pop("forecast_id").startswith("TR169_")
+    assert payload.pop("role") == "geodesist"
+    assert payload.pop("stale_after").endswith("Z")
+    assert payload.pop("valid_until").endswith("Z")
+    assert len(payload.pop("series")["observed"]) == 97
+    assert len(payload.pop("table")["rows"]) == 98
     assert payload == {
         "station": "TR169",
         "source_timestamp": source_time.isoformat().replace("+00:00", "Z"),
@@ -179,6 +189,8 @@ def test_forecast_status_reports_missing_cache(monkeypatch, tmp_path) -> None:
     assert response.json() == {
         "station": "TR169",
         "status": "missing",
+        "stale_after": None,
+        "valid_until": None,
         "cache_available": False,
         "is_usable": False,
         "message": "No cached forecast is available.",
