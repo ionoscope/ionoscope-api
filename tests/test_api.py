@@ -82,16 +82,21 @@ def test_station_list_excludes_inactive_entries(monkeypatch, tmp_path):
     assert [station['code'] for station in response.json()['stations']] == ['TR169']
 
 
-def test_strict_station_list_requires_verified_ready_data(monkeypatch, tmp_path):
+def test_station_catalog_keeps_active_stations_without_ready_forecasts(monkeypatch, tmp_path):
     from dataclasses import replace
     monkeypatch.setattr('app.main.get_settings', lambda: replace(isolated_settings(tmp_path), require_active_stations=True))
     async def stations(*args):
         return {'stations': [{'code': 'TR169', 'is_active': True, 'data_available': True},
-                             {'code': 'NEW00', 'is_active': True, 'data_available': False},
+                             {'code': 'NEW00', 'is_active': True, 'data_available': False,
+                              'last_observation': '2026-11-09T11:10:00+03:00'},
                              {'code': 'OLD00', 'data_available': True}]}
     monkeypatch.setattr(clients, 'get_json', stations)
     response = client.get('/api/v1/forecast/stations')
-    assert [station['code'] for station in response.json()['stations']] == ['TR169']
+    assert [station['code'] for station in response.json()['stations']] == ['TR169', 'NEW00']
+    delayed = response.json()['stations'][1]
+    assert delayed['active'] is True
+    assert delayed['forecast_available'] is False
+    assert delayed['last_observation'] == '2026-11-09T08:10:00Z'
 
 
 def test_refresh_forecast_combines_data_ml_and_writes_cache(monkeypatch, tmp_path) -> None:

@@ -1,6 +1,11 @@
 from __future__ import annotations
 
 import httpx
+import sqlite3
+from datetime import UTC, datetime, timedelta
+from .archive import read_archive
+from .schemas import ForecastArchiveResponse
+from .forecast_cache import ensure_aware_utc
 from uuid import uuid5, NAMESPACE_URL
 from fastapi.exceptions import RequestValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
@@ -9,7 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from .schemas import Parameter, ExplainRequest
 from .explanations import explain_stream, cached_explanation
 
-from fastapi import FastAPI, HTTPException, Path
+from fastapi import FastAPI, HTTPException, Path, Query
 
 from .clients import InsufficientObservationError, UpstreamServiceError, build_forecast, fetch_stations, ensure_station_active
 from .config import Settings, get_settings
@@ -49,6 +54,22 @@ def parameters() -> list[Parameter]:
     return [Parameter(id="foF2", label="foF2", unit="MHz", available=True),
             Parameter(id="MUF", label="МПЧ / MUF", unit="MHz", available=False),
             Parameter(id="TEC", label="ПЭС / TEC", unit="TECU", available=False)]
+
+@app.get("/api/v1/forecast/history", response_model=ForecastArchiveResponse, operation_id="listHistoricalForecasts", tags=["forecast"])
+async def forecast_history(
+    station: str = Query(..., pattern=r"^[A-Za-z0-9_-]+$", min_length=1, max_length=32),
+    start: datetime | None = None, end: datetime | None = None,
+    limit: int = Query(100, ge=1, le=500),
+) -> ForecastArchiveResponse:
+    end = ensure_aware_utc(end or datetime.now(UTC))
+    start = ensure_aware_utc(start or end - timedelta(days=30))
+    if end < start or end - start > timedelta(days=31):
+        raise HTTPException(422, detail={"code": "invalid_request", "message": "Date range must be between 0 and 31 days"})
+    try:
+        return await read_archive(ForecastRequest(station=station).station, start, end, limit, get_settings())
+    except (OSError, sqlite3.Error, ValueError, KeyError) as exc:
+        raise HTTPException(503, detail={"code": "cache_unavailable", "message": "Forecast archive is unavailable"}) from exc
+
 
 @app.post("/api/v1/explain", response_class=StreamingResponse, operation_id="explainForecast",
           responses={200: {"content": {"text/event-stream": {"schema": {"type": "string"},
@@ -90,6 +111,7 @@ async def forecast_stations() -> StationListResponse:
             station.lat = station.latitude
             station.lon = station.longitude_180 if station.longitude_180 is not None else station.longitude
             station.active = station.is_active is True
+            station.forecast_available = station.active and (station.data_available or status.is_usable)
             station.freshness_status = status.status
             station.stale_after, station.valid_until = status.stale_after, status.valid_until
         return result
@@ -142,7 +164,7 @@ async def compute_current_forecast(station: str, settings: Settings) -> Forecast
         }) from exc
     except (UpstreamServiceError, httpx.HTTPError) as exc:
         raise upstream_http_error(exc) from exc
-    except OSError as exc:
+    except (OSError, sqlite3.Error) as exc:
         raise HTTPException(status_code=503, detail={"code": "cache_unavailable", "message": "Forecast cache cannot be written"}) from exc
 
 

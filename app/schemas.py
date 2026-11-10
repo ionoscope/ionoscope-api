@@ -30,6 +30,40 @@ class Parameter(APIModel):
     unit: str
     available: bool
 
+
+class ArchivedForecast(APIModel):
+    forecast_id: str
+    station: str
+    parameter: str = "foF2"
+    unit: str = "MHz"
+    prediction: float = Field(allow_inf_nan=False)
+    generated_at: UTCDateTime
+    forecast_interval_start: UTCDateTime | None
+    forecast_timestamp: UTCDateTime | None
+    model: str
+    model_version: str
+    source: Literal["api", "shadow_original"] = "api"
+    actual: float | None = Field(default=None, allow_inf_nan=False)
+    actual_observation_timestamp: UTCDateTime | None = None
+    signed_error: float | None = None
+    absolute_error: float | None = None
+    percentage_error: float | None = None
+    verification_status: Literal["verified", "pending", "observation_missing", "observations_unavailable", "unverifiable"] = "pending"
+
+
+class ForecastArchiveResponse(APIModel):
+    station: str
+    start: UTCDateTime
+    end: UTCDateTime
+    items: list[ArchivedForecast]
+    total: int
+    limit: int
+    verified_count: int
+    mae: float | None
+    rmse: float | None
+    unit: str = "MHz"
+    observations_available: bool = True
+
 class ObservedPoint(APIModel):
     t: UTCDateTime
     value: float | None = Field(default=None, allow_inf_nan=False)
@@ -157,6 +191,7 @@ class Station(APIModel):
     longitude: float | None = None
     longitude_180: float | None = None
     data_available: bool = False
+    forecast_available: bool = False
     is_active: bool | None = None
     activity_reason: str | None = None
     last_observation: UTCDateTime | None = None

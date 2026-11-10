@@ -16,6 +16,7 @@ class Settings:
     forecast_cache_dir: Path = PROJECT_ROOT / "forecast_cache"
     forecast_stale_after_minutes: float = 30.0
     forecast_expire_after_minutes: float = 120.0
+    shadow_journal_path: Path | None = PROJECT_ROOT.parent / "ionoscope-ml-service" / "shadow_data" / "shadow.sqlite3"
     history_hours: int = 24
     cors_origins: tuple[str, ...] = ("http://localhost:4200",)
     llm_url: str = ""
@@ -27,6 +28,7 @@ class Settings:
 
 def get_settings() -> Settings:
     return Settings(
+        shadow_journal_path=Path(os.getenv("IONOSCOPE_FORECAST_SHADOW_DB", str(Settings.shadow_journal_path))) if os.getenv("IONOSCOPE_FORECAST_SHADOW_DB", str(Settings.shadow_journal_path)) else None,
         history_hours=max(1, min(168, int(os.getenv("IONOSCOPE_HISTORY_HOURS", "24")))),
         cors_origins=tuple(x.strip() for x in os.getenv("IONOSCOPE_CORS_ORIGINS", "http://localhost:4200").split(",") if x.strip()),
         llm_url=os.getenv("IONOSCOPE_LLM_URL", ""),

@@ -254,3 +254,33 @@ valid cache, and expired forecast targets. When the activity guard is enabled,
 the Data API must be reachable even for cache reads; its outage returns 502.
 The report uses synthetic data for failure scenarios and does not establish
 the real-time operating status or forecast quality of those station codes.
+
+
+## Durable historical forecasts and observed errors
+
+GET /api/v1/forecast/history?station=TR169&start=2026-10-05T00:00:00Z&end=2026-11-03T23:59:59Z&limit=100
+returns saved calculations, not retrospective model runs. Default window is 30 days;
+maximum range is 31 days and limit is 1–500. Dates filter generated_at in UTC.
+Forecasts are stored immutably in forecast_cache/forecasts.sqlite3, independently of
+short-lived by_id cache expiration. Existing JSON snapshots are imported once.
+
+IONOSCOPE_FORECAST_SHADOW_DB optionally points to a read-only shadow.sqlite3 control
+journal. Local default is the sibling ML service's shadow_data/shadow.sqlite3;
+an empty environment value disables this import. Docker mounts ml_shadow read-only.
+Only existing original-model predictions are imported; candidate predictions and
+missed slots are excluded. These rows are labelled shadow_original, not API results,
+and retain the original model's SHA256 identity.
+
+A fact is matched to forecast_interval_start, not to an adjacent observation or
+source interval. The target interval must have ended and the observation must have
+verified foF2 provenance within it. The first accepted fact is frozen; later data
+revisions do not rewrite an earlier comparison. Historic data access explicitly uses
+include_inactive=true without relaxing active-station requirements for live forecasts.
+
+Each row includes actual, signed_error = prediction - actual, absolute_error,
+percentage_error = absolute_error / abs(actual) * 100 and verification_status.
+Percentage error is null when actual is zero. Missing/pending/unavailable observations
+produce null errors, never artificial zeroes. MAE and RMSE describe only verified
+rows in the returned page (verified_count); total counts all saved rows in the range.
+Repeated calculations and control/API sources are retained as separate labelled runs.
+If the Data API is unavailable, the archive and already frozen comparisons remain visible.

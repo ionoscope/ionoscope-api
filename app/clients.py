@@ -37,7 +37,7 @@ async def fetch_stations(settings: Settings) -> StationListResponse:
     try:
         response = StationListResponse.model_validate(payload)
         response.stations = [station for station in response.stations
-                             if (station.is_active is True and station.data_available if settings.require_active_stations
+                             if (station.is_active is True if settings.require_active_stations
                                  else station.is_active is not False)]
         return response
     except ValidationError as exc:

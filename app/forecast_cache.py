@@ -34,6 +34,8 @@ def load_forecast(station: str, settings: Settings) -> ForecastResponse:
 
 
 def save_forecast(forecast: ForecastResponse, settings: Settings) -> ForecastResponse:
+    from .archive import archive_forecast
+    archive_forecast(forecast, settings)
     settings.forecast_cache_dir.mkdir(parents=True, exist_ok=True)
     if forecast.forecast_id:
         snapshots = settings.forecast_cache_dir / "by_id"

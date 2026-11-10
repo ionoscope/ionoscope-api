@@ -155,6 +155,15 @@ def main():
             for name, command, url in specs:
                 processes.append(launch(len(processes)))
             if args.docker:
+                frontend_name = network+'-frontend'
+                container_names.append(frontend_name)
+                frontend_dir = work/'frontend'
+                frontend_dir.mkdir()
+                (frontend_dir/'index.html').write_text('<!doctype html><title>IonoScope integration fixture</title>', encoding='utf-8')
+                processes.append(ContainerProcess(['docker','run','--detach','--name',frontend_name,
+                    '--network',network,'--network-alias','frontend',
+                    '--mount',f'type=bind,source={frontend_dir},target=/usr/share/nginx/html,readonly',
+                    'nginx:1.27-alpine'],frontend_name))
                 gateway_name=network+'-gateway'
                 container_names.append(gateway_name)
                 processes.append(ContainerProcess(['docker','run','--detach','--name',gateway_name,
@@ -199,8 +208,20 @@ def main():
                         response=client.get(url+page)
                         assert response.status_code==200 and 'html' in response.headers['content-type']
                         results.append({'check':name+page,'status':200,'passed':True})
+                if args.docker:
+                    landing = client.get(api_url+'/')
+                    assert landing.status_code == 200 and 'IonoScope integration fixture' in landing.text
+                    results.append({'check':'gateway frontend routing','status':200,'passed':True})
                 stations = check('station list','GET',api_url+'/api/v1/forecast/stations')
                 assert any(s['code']=='TR169' and s['data_available'] for s in stations['stations'])
+                parameters = check('forecast parameter catalog','GET',api_url+'/api/v1/forecast/parameters')
+                assert any(p['id'] == 'foF2' and p['available'] for p in parameters)
+                check('missing explanation forecast','POST',api_url+'/api/v1/explain',409,
+                      json={'forecast_id':'TR169_0123456789abcdef0123456789abcdef'})
+                empty_archive = check('empty forecast archive','GET',api_url+'/api/v1/forecast/history',
+                                      params={'station':'TR169'})
+                assert empty_archive['total'] == 0
+                check('shadow worker status','GET',ml_url+'/api/v1/shadow/status')
                 check('data station list','GET',data_url+'/api/v1/stations')
                 check('live worker status','GET',data_url+'/api/v1/live/status')
                 check('station detail','GET',data_url+'/api/v1/stations/tr169')
@@ -234,6 +255,10 @@ def main():
                 assert forecast['forecast_timestamp']==(boundary+timedelta(minutes=15)).isoformat().replace('+00:00','Z')
                 cached = check('cached forecast','POST',api_url+'/api/v1/forecast',json={'station':'TR169'})
                 assert cached['cached'] and cached['prediction']==forecast['prediction']
+                archive = check('forecast persisted to archive','GET',api_url+'/api/v1/forecast/history',
+                                params={'station':'TR169','end':(boundary+timedelta(minutes=15)).isoformat()})
+                assert any(item['forecast_id'] == forecast['forecast_id'] and item['prediction'] == forecast['prediction']
+                           for item in archive['items'])
                 status = check('fresh cache status','GET',api_url+'/api/v1/forecast/status/TR169')
                 assert status['is_usable'] and status['status']=='fresh'
                 with ThreadPoolExecutor(max_workers=8) as pool:

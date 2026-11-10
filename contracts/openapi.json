@@ -108,6 +108,167 @@
         }
       }
     },
+    "/api/v1/forecast/history": {
+      "get": {
+        "tags": [
+          "forecast"
+        ],
+        "summary": "Forecast History",
+        "operationId": "listHistoricalForecasts",
+        "parameters": [
+          {
+            "name": "station",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 32,
+              "pattern": "^[A-Za-z0-9_-]+$",
+              "title": "Station"
+            }
+          },
+          {
+            "name": "start",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Start"
+            }
+          },
+          {
+            "name": "end",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "End"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 500,
+              "minimum": 1,
+              "default": 100,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ForecastArchiveResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "405": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Method Not Allowed"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Gateway"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          },
+          "504": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Gateway Timeout"
+          }
+        }
+      }
+    },
     "/api/v1/explain": {
       "post": {
         "summary": "Explain",
@@ -758,6 +919,167 @@
   },
   "components": {
     "schemas": {
+      "ArchivedForecast": {
+        "properties": {
+          "forecast_id": {
+            "type": "string",
+            "title": "Forecast Id"
+          },
+          "station": {
+            "type": "string",
+            "title": "Station"
+          },
+          "parameter": {
+            "type": "string",
+            "title": "Parameter",
+            "default": "foF2"
+          },
+          "unit": {
+            "type": "string",
+            "title": "Unit",
+            "default": "MHz"
+          },
+          "prediction": {
+            "type": "number",
+            "title": "Prediction"
+          },
+          "generated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Generated At"
+          },
+          "forecast_interval_start": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Forecast Interval Start"
+          },
+          "forecast_timestamp": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Forecast Timestamp"
+          },
+          "model": {
+            "type": "string",
+            "title": "Model"
+          },
+          "model_version": {
+            "type": "string",
+            "title": "Model Version"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "api",
+              "shadow_original"
+            ],
+            "title": "Source",
+            "default": "api"
+          },
+          "actual": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actual"
+          },
+          "actual_observation_timestamp": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actual Observation Timestamp"
+          },
+          "signed_error": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Signed Error"
+          },
+          "absolute_error": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Absolute Error"
+          },
+          "percentage_error": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Percentage Error"
+          },
+          "verification_status": {
+            "type": "string",
+            "enum": [
+              "verified",
+              "pending",
+              "observation_missing",
+              "observations_unavailable",
+              "unverifiable"
+            ],
+            "title": "Verification Status",
+            "default": "pending"
+          }
+        },
+        "type": "object",
+        "required": [
+          "forecast_id",
+          "station",
+          "parameter",
+          "unit",
+          "prediction",
+          "generated_at",
+          "forecast_interval_start",
+          "forecast_timestamp",
+          "model",
+          "model_version",
+          "source",
+          "actual",
+          "actual_observation_timestamp",
+          "signed_error",
+          "absolute_error",
+          "percentage_error",
+          "verification_status"
+        ],
+        "title": "ArchivedForecast"
+      },
       "Column": {
         "properties": {
           "key": {
@@ -870,6 +1192,90 @@
             "role": "geodesist"
           }
         ]
+      },
+      "ForecastArchiveResponse": {
+        "properties": {
+          "station": {
+            "type": "string",
+            "title": "Station"
+          },
+          "start": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Start"
+          },
+          "end": {
+            "type": "string",
+            "format": "date-time",
+            "title": "End"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ArchivedForecast"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit"
+          },
+          "verified_count": {
+            "type": "integer",
+            "title": "Verified Count"
+          },
+          "mae": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mae"
+          },
+          "rmse": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rmse"
+          },
+          "unit": {
+            "type": "string",
+            "title": "Unit",
+            "default": "MHz"
+          },
+          "observations_available": {
+            "type": "boolean",
+            "title": "Observations Available",
+            "default": true
+          }
+        },
+        "type": "object",
+        "required": [
+          "station",
+          "start",
+          "end",
+          "items",
+          "total",
+          "limit",
+          "verified_count",
+          "mae",
+          "rmse",
+          "unit",
+          "observations_available"
+        ],
+        "title": "ForecastArchiveResponse"
       },
       "ForecastPoint": {
         "properties": {
@@ -1644,6 +2050,11 @@
             "title": "Data Available",
             "default": false
           },
+          "forecast_available": {
+            "type": "boolean",
+            "title": "Forecast Available",
+            "default": false
+          },
           "is_active": {
             "anyOf": [
               {
@@ -1696,6 +2107,7 @@
           "longitude",
           "longitude_180",
           "data_available",
+          "forecast_available",
           "is_active",
           "activity_reason",
           "last_observation"
@@ -1736,6 +2148,7 @@
                 "longitude": null,
                 "longitude_180": null,
                 "data_available": false,
+                "forecast_available": false,
                 "is_active": null,
                 "activity_reason": null,
                 "last_observation": null
