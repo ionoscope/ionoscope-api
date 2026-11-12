@@ -38,3 +38,17 @@ jobs:
           persist-credentials: false
       - name: Build image
         run: docker build --tag ionoscope-api:ci .
+      - name: Check the container does not run as root
+        run: test "$(docker run --rm ionoscope-api:ci id -u)" = 10001
+      - name: Check a fresh volume is writable
+        run: docker run --rm --volume probe:/app/forecast_cache ionoscope-api:ci touch /app/forecast_cache/probe
+      - name: Check the service starts
+        run: |
+          set -euo pipefail
+          docker run --detach --name service --publish 8000:8000 ionoscope-api:ci
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent --max-time 2 http://127.0.0.1:8000/health; then exit 0; fi
+            sleep 1
+          done
+          docker logs service
+          exit 1

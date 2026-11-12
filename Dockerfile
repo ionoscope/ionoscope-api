@@ -5,10 +5,16 @@ ENV PYTHONUNBUFFERED=1
 
 WORKDIR /app
 
+RUN useradd --uid 10001 --create-home --shell /usr/sbin/nologin ionoscope
+
 COPY requirements.txt .
 RUN python -m pip install --no-cache-dir -r requirements.txt
 
-COPY . .
+COPY --chown=ionoscope:ionoscope . .
+RUN mkdir -p forecast_cache \
+    && chown ionoscope:ionoscope /app forecast_cache
+
+USER ionoscope
 
 EXPOSE 8000
 
