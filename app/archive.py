@@ -49,7 +49,7 @@ def import_existing(db, settings: Settings, station: str, start: datetime, end: 
                 insert(db, summary(ForecastResponse.model_validate_json(path.read_text(encoding="utf-8"))))
             except (OSError, ValueError):
                 continue
-        db.execute("INSERT INTO metadata VALUES('legacy_imported')")
+        db.execute("INSERT OR IGNORE INTO metadata VALUES('legacy_imported')")
     path = settings.shadow_journal_path
     if path is None or not path.exists():
         return
@@ -57,7 +57,15 @@ def import_existing(db, settings: Settings, station: str, start: datetime, end: 
     # missed intervals and the candidate model are not presented as API forecasts.
     with closing(sqlite3.connect(path.resolve().as_uri() + "?mode=ro", uri=True, timeout=15)) as shadow:
         shadow.row_factory = sqlite3.Row
-        manifest = json.loads(shadow.execute("SELECT manifest FROM run WHERE id=1").fetchone()[0])
+        tables = shadow.execute(
+            "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name IN ('run', 'slots')"
+        ).fetchone()[0]
+        if tables != 2:
+            return
+        run = shadow.execute("SELECT manifest FROM run WHERE id=1").fetchone()
+        if run is None:
+            return
+        manifest = json.loads(run["manifest"])
         model_version = "sha256:" + manifest["original_sha256"]
         for row in shadow.execute("SELECT * FROM slots WHERE station=? AND original IS NOT NULL AND generated_at IS NOT NULL", (station,)):
             generated = utc_timestamp(row["generated_at"])

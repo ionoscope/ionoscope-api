@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import argparse
 import sys
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
+from functools import partial
 
 import httpx
 
@@ -29,7 +31,8 @@ def main() -> int:
         print("no stations selected for forecast refresh")
         return 0
 
-    results = [refresh_station(api_url, station, args.timeout) for station in selected]
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        results = list(pool.map(partial(refresh_station, api_url, timeout=args.timeout), selected))
     for result in results:
         print(f"{result.station}: {result.status} - {result.message}")
 

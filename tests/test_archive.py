@@ -1,4 +1,5 @@
 from datetime import UTC, datetime, timedelta
+from contextlib import closing
 from dataclasses import replace
 import json
 import sqlite3
@@ -89,6 +90,24 @@ def test_imports_existing_cache_and_original_control_predictions(monkeypatch, tm
     control=next(row for row in result.items if row.source=='shadow_original')
     assert control.prediction == 7 and control.absolute_error == 1
     assert all(row.prediction != 999 for row in result.items)
+
+
+@pytest.mark.parametrize("schema", ["", "CREATE TABLE run(id INTEGER, manifest TEXT);",
+                                    "CREATE TABLE run(id INTEGER, manifest TEXT); CREATE TABLE slots(station TEXT);"])
+def test_uninitialized_shadow_journal_preserves_api_archive(monkeypatch, tmp_path, schema):
+    journal = tmp_path / "shadow.sqlite3"
+    with closing(sqlite3.connect(journal)) as db:
+        db.executescript(schema)
+    settings = Settings(forecast_cache_dir=tmp_path, shadow_journal_path=journal)
+    monkeypatch.setattr("app.main.get_settings", lambda: settings)
+    now = datetime.now(UTC)
+    saved = forecast(now).model_copy(update={"forecast_timestamp": now + timedelta(minutes=5)})
+    archive_forecast(saved, settings)
+
+    response = TestClient(app).get("/api/v1/forecast/history", params={"station": "TR169"})
+
+    assert response.status_code == 200
+    assert [item["forecast_id"] for item in response.json()["items"]] == [saved.forecast_id]
 
 
 def test_history_endpoint_validates_range_and_pagination(monkeypatch, tmp_path):

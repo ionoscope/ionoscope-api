@@ -103,6 +103,7 @@ def main():
         ports = [free_port() for _ in range(3)]
         while len(set(ports)) != 3: ports = [free_port() for _ in range(3)]
         data_url, ml_url, api_url = [f'http://127.0.0.1:{port}' for port in ports]
+        internal_api_url = api_url
         gateway_port = free_port() if args.docker else None
         if args.docker:
             api_url = f'http://127.0.0.1:{gateway_port}'
@@ -185,6 +186,9 @@ def main():
                     parsed = httpx.URL(url)
                     base = str(parsed.copy_with(path='/',query=None)).rstrip('/')
                     document = documents.get(base)
+                    if base == internal_api_url:
+                        base = api_url
+                        document = documents.get(base)
                     matched = None
                     payload = response.json()
                     if document:
@@ -212,6 +216,10 @@ def main():
                     landing = client.get(api_url+'/')
                     assert landing.status_code == 200 and 'IonoScope integration fixture' in landing.text
                     results.append({'check':'gateway frontend routing','status':200,'passed':True})
+                    for suffix in ('', '/', '?station=TR169'):
+                        response = client.post(api_url+'/api/v1/forecast/refresh'+suffix, json={'station':'TR169'})
+                        assert response.status_code == 404, (suffix, response.status_code, response.text)
+                        results.append({'check':'public refresh blocked '+suffix,'status':404,'passed':True})
                 stations = check('station list','GET',api_url+'/api/v1/forecast/stations')
                 assert any(s['code']=='TR169' and s['data_available'] for s in stations['stations'])
                 parameters = check('forecast parameter catalog','GET',api_url+'/api/v1/forecast/parameters')
@@ -250,7 +258,7 @@ def main():
                 assert not unavailable['available'] and unavailable['update_required']
                 missing = check('missing cache','GET',api_url+'/api/v1/forecast/status/TR169')
                 assert missing['status']=='missing'
-                forecast = check('forecast refresh','POST',api_url+'/api/v1/forecast/refresh',json={'station':'TR169'})
+                forecast = check('forecast refresh','POST',internal_api_url+'/api/v1/forecast/refresh',json={'station':'TR169'})
                 assert forecast['forecast_interval_start']==boundary.isoformat().replace('+00:00','Z')
                 assert forecast['forecast_timestamp']==(boundary+timedelta(minutes=15)).isoformat().replace('+00:00','Z')
                 cached = check('cached forecast','POST',api_url+'/api/v1/forecast',json={'station':'TR169'})
@@ -267,11 +275,11 @@ def main():
                 results.append({'check':'parallel cache reads','requests':40,'concurrency':8,'passed':True})
                 before=(cache/'TR169.json').read_bytes()
                 write_features(value='')
-                error = check('missing foF2','POST',api_url+'/api/v1/forecast/refresh',503,json={'station':'TR169'})
+                error = check('missing foF2','POST',internal_api_url+'/api/v1/forecast/refresh',503,json={'station':'TR169'})
                 assert error['detail']['code']=='insufficient_observations'
                 assert (cache/'TR169.json').read_bytes()==before
                 write_features(historical=True)
-                check('historical data rejected as current','POST',api_url+'/api/v1/forecast/refresh',503,json={'station':'TR169'})
+                check('historical data rejected as current','POST',internal_api_url+'/api/v1/forecast/refresh',503,json={'station':'TR169'})
                 assert (cache/'TR169.json').read_bytes()==before
                 month_start=datetime(2025,9,1,tzinfo=UTC)
                 temporary=path.with_suffix('.tmp')
@@ -292,12 +300,12 @@ def main():
                 if args.active_stations:
                     excluded = {}
                     for code, case in [('AL945', 'low_cs'), ('AT138', 'no_data'), ('CAJ2M', 'source_down')]:
-                        check(f'{code} seed valid cache', 'POST', api_url+'/api/v1/forecast/refresh', json={'station': code})
+                        check(f'{code} seed valid cache', 'POST', internal_api_url+'/api/v1/forecast/refresh', json={'station': code})
                         prior = (cache/f'{code}.json').read_bytes()
                         excluded[code] = case
                         write_activity(excluded)
                         for endpoint in ['/api/v1/forecast', '/api/v1/forecast/refresh']:
-                            check(f'{case} rejects cached forecast via {endpoint}', 'POST', api_url+endpoint, 503, json={'station': code})
+                            check(f'{case} rejects cached forecast via {endpoint}', 'POST', (internal_api_url if endpoint.endswith('/refresh') else api_url)+endpoint, 503, json={'station': code})
                         check(f'{case} rejects cached status', 'GET', api_url+'/api/v1/forecast/status/'+code, 503)
                         assert (cache/f'{code}.json').read_bytes() == prior
                     visible = check('only active prepared stations listed', 'GET', api_url+'/api/v1/forecast/stations')
@@ -331,10 +339,10 @@ def main():
                 check('invalid task ID','GET',data_url+'/api/v1/updates/not-a-task',404)
                 processes[1].terminate(); processes[1].wait(timeout=10)
                 before=(cache/'TR169.json').read_bytes()
-                check('ML connection failure','POST',api_url+'/api/v1/forecast/refresh',502,json={'station':'TR169'})
+                check('ML connection failure','POST',internal_api_url+'/api/v1/forecast/refresh',502,json={'station':'TR169'})
                 assert (cache/'TR169.json').read_bytes()==before
                 processes[0].terminate();processes[0].wait(timeout=10)
-                check('Data API connection failure','POST',api_url+'/api/v1/forecast/refresh',502,json={'station':'TR169'})
+                check('Data API connection failure','POST',internal_api_url+'/api/v1/forecast/refresh',502,json={'station':'TR169'})
                 available_cache=check('activity guard during Data API outage' if args.active_stations else 'valid cache survives upstream outage','POST',api_url+'/api/v1/forecast',502 if args.active_stations else 200,json={'station':'TR169'})
                 if not args.active_stations: assert available_cache['cached']
                 expected_routes={(url,method,template) for url,document in documents.items() for template,ops in document['paths'].items() for method in ops if method in {'get','post','put','delete','patch'}}
