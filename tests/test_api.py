@@ -147,6 +147,12 @@ def test_refresh_forecast_combines_data_ml_and_writes_cache(monkeypatch, tmp_pat
     assert payload.pop("valid_until").endswith("Z")
     assert len(payload.pop("series")["observed"]) == 97
     assert len(payload.pop("table")["rows"]) == 98
+    assert payload.pop("observation_age_minutes") == pytest.approx(16, abs=0.1)
+    assert payload.pop("observation_age_at_generation_minutes") == pytest.approx(16, abs=0.1)
+    quality = payload.pop("observation_quality")
+    assert quality["expected_intervals"] == 96
+    assert quality["available_intervals"] == 1
+    assert quality["missing_intervals"] == 95
     assert payload == {
         "station": "TR169",
         "source_timestamp": source_time.isoformat().replace("+00:00", "Z"),
@@ -204,6 +210,8 @@ def test_forecast_status_reports_missing_cache(monkeypatch, tmp_path) -> None:
         "generated_at": None,
         "age_minutes": None,
         "source_age_minutes": None,
+        "observation_timestamp": None,
+        "observation_age_minutes": None,
         "stale_after_minutes": 30.0,
         "expire_after_minutes": 120.0,
     }

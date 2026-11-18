@@ -146,6 +146,8 @@ def evaluate_forecast(
         generated_at=forecast.generated_at,
         age_minutes=round(age_minutes, 3),
         source_age_minutes=round(source_age_minutes, 3),
+        observation_timestamp=forecast.observation_timestamp,
+        observation_age_minutes=round(observation_age, 3) if observation else None,
         stale_after_minutes=settings.forecast_stale_after_minutes,
         expire_after_minutes=settings.forecast_expire_after_minutes,
     )

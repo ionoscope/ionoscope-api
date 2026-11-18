@@ -130,6 +130,18 @@ class ForecastRequest(APIModel):
         return value.strip().upper() if isinstance(value, str) else value
 
 
+class ObservationQuality(APIModel):
+    window_start: UTCDateTime
+    window_end: UTCDateTime
+    step_minutes: int = 15
+    expected_intervals: int
+    available_intervals: int
+    missing_intervals: int
+    coverage_percent: float
+    longest_gap_minutes: int
+    trailing_gap_minutes: int
+
+
 class ForecastResponse(APIModel):
     model_config = {"json_schema_extra": {"examples": [FORECAST_EXAMPLE]}}
     forecast_id: str = ""
@@ -143,6 +155,9 @@ class ForecastResponse(APIModel):
     source_interval_end: UTCDateTime | None = None
     forecast_interval_start: UTCDateTime | None = None
     observation_timestamp: UTCDateTime | None = None
+    observation_age_minutes: float | None = None
+    observation_age_at_generation_minutes: float | None = None
+    observation_quality: ObservationQuality | None = None
     current_fof2_available: bool = False
     forecast_timestamp: UTCDateTime | None = None
     generated_at: UTCDateTime
@@ -171,6 +186,8 @@ class ForecastStatusResponse(APIModel):
     generated_at: UTCDateTime | None = None
     age_minutes: float | None = None
     source_age_minutes: float | None = None
+    observation_timestamp: UTCDateTime | None = None
+    observation_age_minutes: float | None = None
     stale_after_minutes: float
     expire_after_minutes: float
 

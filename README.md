@@ -284,3 +284,20 @@ produce null errors, never artificial zeroes. MAE and RMSE describe only verifie
 rows in the returned page (verified_count); total counts all saved rows in the range.
 Repeated calculations and control/API sources are retained as separate labelled runs.
 If the Data API is unavailable, the archive and already frozen comparisons remain visible.
+# Observation freshness and daily coverage
+
+Forecast responses expose `observation_timestamp`, the dynamically evaluated
+`observation_age_minutes`, and `observation_age_at_generation_minutes`. Reusing
+the cache never resets observation age. The status endpoint also reports the
+observation timestamp and current age. Existing configurable stale/expiry
+thresholds still apply; observations past expiry are rejected before inference.
+Forecast targets retain their model-defined times; expired predictions are not
+shifted forward to disguise missing observations.
+
+`observation_quality` describes the 96 completed 15-minute intervals in the
+24 hours preceding calculation: coverage, missing intervals, longest missing
+run and trailing missing run. Only finite foF2 values with verified observation
+provenance count. This measures qualified prepared-interval coverage, not the
+completeness of every raw station measurement or the accuracy of a forecast.
+Coverage is a calculation-time snapshot; the interface warns about partial
+coverage without imposing an unvalidated minimum-coverage threshold.

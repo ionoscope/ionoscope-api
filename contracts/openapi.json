@@ -1444,6 +1444,38 @@
             ],
             "title": "Observation Timestamp"
           },
+          "observation_age_minutes": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Observation Age Minutes"
+          },
+          "observation_age_at_generation_minutes": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Observation Age At Generation Minutes"
+          },
+          "observation_quality": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ObservationQuality"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "current_fof2_available": {
             "type": "boolean",
             "title": "Current Fof2 Available",
@@ -1536,6 +1568,9 @@
           "source_interval_end",
           "forecast_interval_start",
           "observation_timestamp",
+          "observation_age_minutes",
+          "observation_age_at_generation_minutes",
+          "observation_quality",
           "current_fof2_available",
           "forecast_timestamp",
           "generated_at",
@@ -1565,6 +1600,9 @@
             "forecast_interval_start": "2026-09-27T00:15:00Z",
             "forecast_timestamp": "2026-09-27T00:30:00Z",
             "observation_timestamp": "2026-09-27T00:10:00Z",
+            "observation_age_minutes": 6.0,
+            "observation_age_at_generation_minutes": 6.0,
+            "observation_quality": null,
             "current_fof2_available": true,
             "generated_at": "2026-09-27T00:16:00Z",
             "model": "HistGradientBoostingRegressor",
@@ -1740,6 +1778,29 @@
             ],
             "title": "Source Age Minutes"
           },
+          "observation_timestamp": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Observation Timestamp"
+          },
+          "observation_age_minutes": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Observation Age Minutes"
+          },
           "stale_after_minutes": {
             "type": "number",
             "title": "Stale After Minutes"
@@ -1763,6 +1824,8 @@
           "generated_at",
           "age_minutes",
           "source_age_minutes",
+          "observation_timestamp",
+          "observation_age_minutes",
           "stale_after_minutes",
           "expire_after_minutes"
         ],
@@ -1781,6 +1844,8 @@
             "generated_at": null,
             "age_minutes": null,
             "source_age_minutes": null,
+            "observation_timestamp": null,
+            "observation_age_minutes": null,
             "stale_after_minutes": 30.0,
             "expire_after_minutes": 120.0
           }
@@ -1809,6 +1874,62 @@
             "service": "ionoscope-api"
           }
         ]
+      },
+      "ObservationQuality": {
+        "properties": {
+          "window_start": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Window Start"
+          },
+          "window_end": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Window End"
+          },
+          "step_minutes": {
+            "type": "integer",
+            "title": "Step Minutes",
+            "default": 15
+          },
+          "expected_intervals": {
+            "type": "integer",
+            "title": "Expected Intervals"
+          },
+          "available_intervals": {
+            "type": "integer",
+            "title": "Available Intervals"
+          },
+          "missing_intervals": {
+            "type": "integer",
+            "title": "Missing Intervals"
+          },
+          "coverage_percent": {
+            "type": "number",
+            "title": "Coverage Percent"
+          },
+          "longest_gap_minutes": {
+            "type": "integer",
+            "title": "Longest Gap Minutes"
+          },
+          "trailing_gap_minutes": {
+            "type": "integer",
+            "title": "Trailing Gap Minutes"
+          }
+        },
+        "type": "object",
+        "required": [
+          "window_start",
+          "window_end",
+          "step_minutes",
+          "expected_intervals",
+          "available_intervals",
+          "missing_intervals",
+          "coverage_percent",
+          "longest_gap_minutes",
+          "trailing_gap_minutes"
+        ],
+        "title": "ObservationQuality"
       },
       "ObservedPoint": {
         "properties": {

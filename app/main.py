@@ -186,6 +186,7 @@ def with_freshness(forecast: ForecastResponse, status: ForecastStatusResponse) -
         "valid_until": status.valid_until,
         "freshness_status": status.status,
         "freshness_message": status.message,
+        "observation_age_minutes": status.observation_age_minutes,
     })
 
 

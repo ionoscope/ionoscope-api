@@ -12,6 +12,7 @@ import httpx
 from pydantic import ValidationError
 
 from .config import Settings
+from .observation_quality import observation_quality
 from .schemas import ForecastResponse, StationListResponse, Series, ObservedPoint, ForecastPoint, Table, Column, TableRow
 
 
@@ -77,6 +78,8 @@ async def _build_forecast(station: str, settings: Settings) -> ForecastResponse:
     if (interval_end != source_timestamp + timedelta(minutes=15) or interval_end > now
             or not source_timestamp <= observation_timestamp < interval_end):
         raise InsufficientObservationError("A completed 15-minute interval with valid observation provenance is required")
+    if (now - observation_timestamp).total_seconds() / 60 >= settings.forecast_expire_after_minutes:
+        raise InsufficientObservationError("The latest quality-qualified foF2 observation has expired")
     prediction_payload = await post_json(
         settings.ml_service_url,
         "/api/v1/predict",
@@ -111,13 +114,17 @@ async def _build_forecast(station: str, settings: Settings) -> ForecastResponse:
     )
 
     await add_presentation(result, settings, feature_payload)
+    result.observation_age_at_generation_minutes = round(
+        (result.generated_at - observation_timestamp).total_seconds() / 60, 3)
     return result
 
 
 async def add_presentation(result: ForecastResponse, settings: Settings, latest: dict) -> None:
     end = result.source_timestamp.replace(minute=(result.source_timestamp.minute // 15)*15, second=0, microsecond=0)
     start = end - timedelta(hours=settings.history_hours)
-    query = urlencode({"start": start.isoformat(), "end": end.isoformat(), "allow_partial": "true"})
+    quality_end = result.generated_at.replace(minute=result.generated_at.minute // 15 * 15, second=0, microsecond=0)
+    query = urlencode({"start": min(start, quality_end-timedelta(hours=24)).isoformat(),
+                       "end": max(end, quality_end-timedelta(minutes=15)).isoformat(), "allow_partial": "true"})
     payload = await get_json(settings.data_api_url, f"/api/v1/features/{result.station}?{query}", settings)
     if str(payload.get("station", "")).upper() != result.station.upper() or not isinstance(payload.get("records"), list):
         raise UpstreamServiceError("Data API returned an invalid observation history")
@@ -132,6 +139,7 @@ async def add_presentation(result: ForecastResponse, settings: Settings, latest:
                 and t <= utc_timestamp(observation) < t + timedelta(minutes=15)
                 and isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value)):
             points[t.replace(minute=(t.minute // 15)*15, second=0, microsecond=0)] = value
+    result.observation_quality = observation_quality(points, now=result.generated_at)
     observed = [ObservedPoint(t=start+timedelta(minutes=15*i), value=points.get(start+timedelta(minutes=15*i)))
                 for i in range(settings.history_hours*4+1)]
     result.series = Series(observed=observed, forecast=[ForecastPoint(
