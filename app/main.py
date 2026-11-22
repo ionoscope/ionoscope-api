@@ -17,6 +17,7 @@ from .explanations import explain_stream, cached_explanation
 from fastapi import FastAPI, HTTPException, Path, Query
 
 from .clients import InsufficientObservationError, UpstreamServiceError, build_forecast, fetch_stations, ensure_station_active
+from .clients import get_json
 from .config import Settings, get_settings
 from .forecast_cache import ForecastCacheMiss, evaluate_forecast, get_forecast_status, load_forecast, save_forecast, load_forecast_by_id
 from .schemas import ErrorResponse, ForecastRequest, ForecastResponse, ForecastStatusResponse, HealthResponse, StationListResponse
@@ -32,6 +33,19 @@ app = FastAPI(
 
 app.add_middleware(CORSMiddleware, allow_origins=list(get_settings().cors_origins),
                    allow_methods=["GET", "POST"], allow_headers=["Content-Type"])
+
+
+@app.get('/api/v1/forecast/weekly/{station}', tags=['forecast'])
+async def weekly_experiment(station: str = Path(pattern=r'^[A-Za-z0-9_-]{1,32}$')) -> dict:
+    settings = get_settings()
+    station = station.upper()
+    try:
+        result = await get_json(settings.ml_service_url, f'/api/v1/weekly/{station}', settings)
+        if result.get('station') != station:
+            raise UpstreamServiceError('Weekly experiment returned a different station')
+        return result
+    except (UpstreamServiceError, httpx.HTTPError) as exc:
+        raise HTTPException(503, detail={'code':'forecast_unavailable','message':'Experimental weekly forecast is unavailable'}) from exc
 
 @app.exception_handler(StarletteHTTPException)
 async def http_error(request, exc):
